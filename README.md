@@ -23,7 +23,7 @@ git clone https://github.com/CraftStick/NewsBot.git
 cd NewsBot
 sudo ./deploy/install.sh
 sudo nano /opt/treesheild-newsbot/.env
-sudo -u newsbot /opt/treesheild-newsbot/treesheild-newsbot -preview
+cd /opt/treesheild-newsbot && sudo -u newsbot ./treesheild-newsbot -preview
 sudo systemctl start treesheild-newsbot
 sudo systemctl status treesheild-newsbot
 journalctl -u treesheild-newsbot -f

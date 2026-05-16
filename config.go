@@ -3,12 +3,33 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
 )
+
+// loadEnv читает .env: ENV_FILE → рядом с бинарником → текущая папка.
+func loadEnv() {
+	if f := strings.TrimSpace(os.Getenv("ENV_FILE")); f != "" {
+		_ = godotenv.Load(f)
+		return
+	}
+	var paths []string
+	if exe, err := os.Executable(); err == nil {
+		paths = append(paths, filepath.Join(filepath.Dir(exe), ".env"))
+	}
+	paths = append(paths, ".env")
+	for _, p := range paths {
+		if _, err := os.Stat(p); err != nil {
+			continue
+		}
+		_ = godotenv.Load(p)
+		return
+	}
+}
 
 // systemPrompt — тон «по-человечески»; шапка и прощание — в format.go.
 const systemPrompt = `Редактор IT-дайджеста для аудитории в России. Выбери 6 тем недели: VPN, блокировки, приватность, ИБ.
@@ -36,7 +57,7 @@ type Config struct {
 }
 
 func LoadConfig(requireTelegram bool) (Config, error) {
-	_ = godotenv.Load()
+	loadEnv()
 
 	cfg := Config{
 		TelegramToken:         strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")),
