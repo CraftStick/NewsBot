@@ -47,10 +47,16 @@ func main() {
 			log.Fatalf("превью: %v", err)
 		}
 	case *runOnce:
+		if err := cfg.validateChannel(); err != nil {
+			log.Fatalf("конфиг: %v", err)
+		}
 		if err := runDigest(cfg, false); err != nil {
 			log.Fatalf("дайджест: %v", err)
 		}
 	default:
+		if err := cfg.validateChannel(); err != nil {
+			log.Fatalf("конфиг: %v", err)
+		}
 		scheduler, err := startScheduler(cfg)
 		if err != nil {
 			log.Fatalf("планировщик: %v", err)

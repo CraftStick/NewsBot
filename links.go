@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	hrefInBlock   = regexp.MustCompile(`(?i)<a\s+href="([^"]+)"`)
-	extractLinkRE = regexp.MustCompile(`(?is)<a\s+href="[^"]+">(.*?)</a>`)
+	hrefInBlock      = regexp.MustCompile(`(?i)<a\s+href="([^"]+)"`)
+	extractLinkRE    = regexp.MustCompile(`(?is)<a\s+href="[^"]+">(.*?)</a>`)
+	newsTitleInBoldRE = regexp.MustCompile(`(?is)<b>\s*\d{1,2}\.\s*(.*?)</b>`)
 )
 
 func extractNewsURL(block string) string {
@@ -26,8 +27,7 @@ func extractNewsTitle(block string) string {
 	if m := extractLinkRE.FindStringSubmatch(block); len(m) >= 2 {
 		return strings.TrimSpace(stripHTML(m[1]))
 	}
-	re := regexp.MustCompile(`(?is)<b>\s*\d{1,2}\.\s*(.*?)</b>`)
-	m := re.FindStringSubmatch(block)
+	m := newsTitleInBoldRE.FindStringSubmatch(block)
 	if len(m) < 2 {
 		return ""
 	}
@@ -148,12 +148,15 @@ func ensureNewsLinks(body string, articles []Article) string {
 	if len(blocks) == 0 {
 		return body
 	}
+	if len(blocks) > requiredNewsItems {
+		blocks = blocks[:requiredNewsItems]
+	}
 
 	used := make(map[string]bool)
 	out := make([]string, 0, len(blocks))
 
-	for i, block := range blocks {
-		num := i + 1
+	for _, block := range blocks {
+		num := 1
 		if m := newsItemHeading.FindStringSubmatch(block); len(m) >= 2 {
 			num = parseNewsNum(m[1])
 		}

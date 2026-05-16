@@ -15,6 +15,8 @@ const (
 	geminiMaxOutputTokens  = 4800
 )
 
+var singleNewsNumRE = regexp.MustCompile(`<b>\s*\d{1,2}\.\s`)
+
 func generateDigest(ctx context.Context, cfg Config, rawNews string) (string, error) {
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey:  cfg.GeminiAPIKey,
@@ -121,8 +123,7 @@ func normalizeSingleNewsBlock(body string, number int) string {
 			body = fmt.Sprintf("<b>%d. %s</b>\n%s", number, body, "")
 		}
 	}
-	reNum := regexp.MustCompile(`<b>\s*\d{1,2}\.\s`)
-	return reNum.ReplaceAllString(body, fmt.Sprintf("<b>%d. ", number))
+	return singleNewsNumRE.ReplaceAllString(body, fmt.Sprintf("<b>%d. ", number))
 }
 
 func callGemini(

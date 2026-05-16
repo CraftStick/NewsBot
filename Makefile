@@ -1,7 +1,7 @@
 APP      := treesheild-newsbot
 VERSION  ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-.PHONY: build build-linux run preview once clean
+.PHONY: build build-linux run preview once clean check test
 
 build:
 	go build -ldflags "-s -w" -o $(APP) .
@@ -21,3 +21,9 @@ once: build
 
 clean:
 	rm -f $(APP)
+
+check: test
+	go vet ./...
+
+test:
+	go test ./...

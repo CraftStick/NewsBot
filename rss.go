@@ -32,7 +32,6 @@ var feedSources = []struct {
 	{Name: "Habr — Информационная безопасность", URL: "https://habr.com/ru/rss/hub/infosecurity/"},
 	{Name: "Habr — Разработка", URL: "https://habr.com/ru/rss/flows/develop/"},
 	{Name: "VC.ru", URL: "https://vc.ru/rss"},
-	{Name: "3DNews", URL: "https://www.3dnews.ru/news/rss/"},
 	{Name: "SecurityLab", URL: "https://www.securitylab.ru/_Services/export/rss/"},
 	{Name: "Anti-Malware.ru", URL: "https://www.anti-malware.ru/news/feed/"},
 	{Name: "CNews", URL: "https://www.cnews.ru/inc/rss/news.xml"},

@@ -17,8 +17,8 @@ const (
 	newsBulletEmojiID = "5429501538806548545"
 	newsBulletEmojiFB = "✅"
 	requiredNewsItems  = 6
-	russianNewsItems   = 5 // пункты 1–5: Россия
 	foreignNewsItemNum = 6 // пункт 6: зарубежная новость
+	telegramMaxMessage = 4096
 	minNewsTextRunes  = 40
 	maxNewsTextRunes  = 320
 	maxNewsTitleRunes = 85
@@ -132,7 +132,7 @@ func validateSingleNewsBlock(body string) error {
 	return nil
 }
 
-// validateNewsBody проверяет: 5 пунктов, каждый с полным текстом.
+// validateNewsBody проверяет 6 пунктов: заголовок и два полных предложения в каждом.
 func validateNewsBody(body string) error {
 	body = strings.TrimSpace(body)
 	n := countNewsItems(body)

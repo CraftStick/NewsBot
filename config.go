@@ -80,16 +80,11 @@ func LoadConfig(requireTelegram bool) (Config, error) {
 	}
 	cfg.Timezone = loc
 
-	if requireTelegram {
-		if cfg.TelegramToken == "" {
-			return cfg, fmt.Errorf("TELEGRAM_BOT_TOKEN не задан")
-		}
-		if cfg.TelegramChannelID == "" {
-			return cfg, fmt.Errorf("TELEGRAM_CHANNEL_ID не задан")
-		}
-	}
 	if cfg.GeminiAPIKey == "" {
 		return cfg, fmt.Errorf("GEMINI_API_KEY не задан")
+	}
+	if requireTelegram && cfg.TelegramChannelID == "" {
+		return cfg, fmt.Errorf("TELEGRAM_CHANNEL_ID не задан")
 	}
 
 	return cfg, nil
@@ -112,16 +107,3 @@ func parseChatTarget(raw, envName string) (chatTarget, error) {
 	return chatTarget{ChatID: id}, nil
 }
 
-func (cfg Config) validatePreview() error {
-	if cfg.TelegramToken == "" {
-		return fmt.Errorf("TELEGRAM_BOT_TOKEN не задан")
-	}
-	if err := verifyTelegramToken(cfg.TelegramToken); err != nil {
-		return err
-	}
-	if cfg.TelegramPreviewChatID == "" {
-		return fmt.Errorf(`TELEGRAM_PREVIEW_CHAT_ID не задан — напишите боту /start, затем откройте:
-https://api.telegram.org/bot<ТОКЕН>/getUpdates и скопируйте "chat":{"id":123456789}`)
-	}
-	return nil
-}
