@@ -30,15 +30,14 @@ func generateDigest(ctx context.Context, cfg Config, articles []Article) (string
 		return "", fmt.Errorf("gemini client: %w", err)
 	}
 
-	fullPrompt := buildNewsDigestPrompt(articles)
+	fullPrompt := buildNewsDigestPrompt(articles, 0)
 	body, err := generateDigestBatch(ctx, client, cfg, fullPrompt)
 	if err == nil {
 		return body, nil
 	}
 	log.Printf("Пакетная генерация не удалась (%v), пробуем по одной новости…", err)
 
-	compactPrompt := buildCompactDigestPrompt(articles, geminiSequentialArticles)
-	return generateDigestSequential(ctx, client, cfg, compactPrompt)
+	return generateDigestSequential(ctx, client, cfg, buildNewsDigestPrompt(articles, geminiSequentialArticles))
 }
 
 func generateDigestBatch(ctx context.Context, client *genai.Client, cfg Config, userText string) (string, error) {
@@ -145,25 +144,6 @@ func buildSingleNewsPrompt(feed string, number int, used []string) string {
 		b.WriteString("Уже выбраны темы (не повторяй): ")
 		b.WriteString(strings.Join(used, "; "))
 		b.WriteByte('\n')
-	}
-	return b.String()
-}
-
-func buildCompactDigestPrompt(articles []Article, limit int) string {
-	pool := articlesForPrompt(articles)
-	if len(pool) > limit {
-		pool = pool[:limit]
-	}
-	var b strings.Builder
-	b.WriteString("Лента 7д (приоритет — Россия/рунет):\n")
-	for i, a := range pool {
-		fmt.Fprintf(&b, "%d.%s|%s|%s|%s\n",
-			i+1,
-			a.PublishedAt.Format("02.01"),
-			shortSource(a.Source),
-			a.Title,
-			a.Link,
-		)
 	}
 	return b.String()
 }

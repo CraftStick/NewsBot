@@ -283,11 +283,14 @@ func shortSource(name string) string {
 	return name
 }
 
-func buildNewsDigestPrompt(articles []Article) string {
-	articles = articlesForPrompt(articles)
+func buildNewsDigestPrompt(articles []Article, maxItems int) string {
+	pool := articlesForPrompt(articles)
+	if maxItems > 0 && len(pool) > maxItems {
+		pool = pool[:maxItems]
+	}
 	var b strings.Builder
 	b.WriteString("Лента 7д (приоритет — Россия/рунет, ↓новее):\n")
-	for i, a := range articles {
+	for i, a := range pool {
 		line := fmt.Sprintf("%d.%s|%s|%s|%s",
 			i+1,
 			a.PublishedAt.Format("02.01"),

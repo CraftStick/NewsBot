@@ -1,9 +1,8 @@
-// Tree Shield VPN — автономный бот пятничного дайджеста.
+// Tree Shield VPN — пятничный дайджест: RSS → Gemini → превью в личку.
 //
-// Сборка: go build -o treesheild-newsbot .
-// Превью в личку:      ./treesheild-newsbot -preview
-// Планировщик:         ./treesheild-newsbot  (по умолчанию тоже только в личку)
-// В канал вручную:     DIGEST_MODE=channel или -run-once / -run-in
+//	go build -o treesheild-newsbot .
+//	./treesheild-newsbot -preview   # один раз
+//	./treesheild-newsbot            # по CRON_SCHEDULE из .env
 package main
 
 import (
@@ -20,25 +19,9 @@ import (
 )
 
 func main() {
-	preview := flag.Bool("preview", false, "собрать дайджест и отправить вам в личку с ботом")
-	runOnce := flag.Bool("run-once", false, "сразу собрать и опубликовать дайджест в канал")
-	runIn := flag.Duration("run-in", 0, "один раз опубликовать в канал через указанное время (например 1m, 30s)")
-	cronOverride := flag.String("cron", "", "cron-расписание (5 полей), перебивает CRON_SCHEDULE из .env")
+	once := flag.Bool("preview", false, "собрать дайджест один раз и выйти")
+	cronOverride := flag.String("cron", "", "cron (5 полей), перебивает CRON_SCHEDULE")
 	flag.Parse()
-
-	modes := 0
-	if *preview {
-		modes++
-	}
-	if *runOnce {
-		modes++
-	}
-	if *runIn > 0 {
-		modes++
-	}
-	if modes > 1 {
-		log.Fatal("укажите только один режим: -preview, -run-once или -run-in")
-	}
 
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -47,66 +30,25 @@ func main() {
 	if *cronOverride != "" {
 		cfg.CronSchedule = *cronOverride
 	}
+	if err := cfg.validate(); err != nil {
+		log.Fatalf("конфиг: %v", err)
+	}
 
-	log.Printf("Tree Shield NewsBot | TZ=%s | модель=%s | cron=%s | режим=%s",
-		cfg.Timezone, cfg.GeminiModel, cfg.CronSchedule, cfg.DigestMode)
+	log.Printf("Tree Shield NewsBot | TZ=%s | модель=%s | cron=%s",
+		cfg.Timezone, cfg.GeminiModel, cfg.CronSchedule)
 
-	switch {
-	case *preview:
-		if err := cfg.validatePreview(); err != nil {
-			log.Fatalf("конфиг: %v", err)
-		}
-		if err := runDigest(cfg, true); err != nil {
-			log.Fatalf("превью: %v", err)
-		}
-	case *runOnce:
-		if err := cfg.validateChannel(); err != nil {
-			log.Fatalf("конфиг: %v", err)
-		}
-		if err := runDigest(cfg, false); err != nil {
+	if *once {
+		if err := runDigest(cfg); err != nil {
 			log.Fatalf("дайджест: %v", err)
 		}
-	case *runIn > 0:
-		if err := cfg.validateChannel(); err != nil {
-			log.Fatalf("конфиг: %v", err)
-		}
-		runChannelAfter(cfg, *runIn)
-	default:
-		if cfg.deliversPreview() {
-			if err := cfg.validatePreview(); err != nil {
-				log.Fatalf("конфиг: %v", err)
-			}
-		} else if err := cfg.validateChannel(); err != nil {
-			log.Fatalf("конфиг: %v", err)
-		}
-		scheduler, err := startScheduler(cfg)
-		if err != nil {
-			log.Fatalf("планировщик: %v", err)
-		}
-		waitForShutdown(scheduler)
+		return
 	}
-}
 
-func runChannelAfter(cfg Config, delay time.Duration) {
-	log.Printf("Публикация в канал %s через %s… (Ctrl+C — отмена)", cfg.TelegramChannelID, delay)
-	timer := time.NewTimer(delay)
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-
-	select {
-	case <-timer.C:
-		if err := runDigest(cfg, false); err != nil {
-			log.Fatalf("дайджест: %v", err)
-		}
-	case <-sig:
-		if !timer.Stop() {
-			<-timer.C
-		}
-		log.Println("отменено")
+	scheduler, err := startScheduler(cfg)
+	if err != nil {
+		log.Fatalf("планировщик: %v", err)
 	}
-}
 
-func waitForShutdown(scheduler gocron.Scheduler) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
@@ -120,30 +62,26 @@ func startScheduler(cfg Config) (gocron.Scheduler, error) {
 		return nil, err
 	}
 
-	preview := cfg.deliversPreview()
 	_, err = scheduler.NewJob(
 		gocron.CronJob(cfg.CronSchedule, false),
 		gocron.NewTask(func() {
-			if err := runDigest(cfg, preview); err != nil {
+			if err := runDigest(cfg); err != nil {
 				log.Printf("ошибка дайджеста: %v", err)
 			}
 		}),
-		gocron.WithName("digest"),
+		gocron.WithName("friday-digest"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cron %q: %w", cfg.CronSchedule, err)
 	}
 
 	scheduler.Start()
-	dest := "канал " + cfg.TelegramChannelID
-	if preview {
-		dest = "личка " + cfg.TelegramPreviewChatID
-	}
-	log.Printf("Планировщик: cron=%q (%s) → %s. Ctrl+C для выхода.", cfg.CronSchedule, cfg.Timezone, dest)
+	log.Printf("Планировщик: cron=%q (%s) → личка %s. Ctrl+C для выхода.",
+		cfg.CronSchedule, cfg.Timezone, cfg.TelegramPreviewChatID)
 	return scheduler, nil
 }
 
-func runDigest(cfg Config, preview bool) error {
+func runDigest(cfg Config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
@@ -156,9 +94,8 @@ func runDigest(cfg Config, preview bool) error {
 	}
 	log.Printf("Отобрано статей: %d", len(articles))
 
-	prompt := buildNewsDigestPrompt(articles)
-	inPrompt := len(articlesForPrompt(articles))
-	log.Printf("Запрос к Gemini (~%d симв., %d статей в контексте)…", len(prompt), inPrompt)
+	pool := articlesForPrompt(articles)
+	log.Printf("Запрос к Gemini (~%d симв., %d статей)…", len(buildNewsDigestPrompt(articles, 0)), len(pool))
 
 	newsHTML, err := generateDigest(ctx, cfg, articles)
 	if err != nil {
@@ -170,13 +107,6 @@ func runDigest(cfg Config, preview bool) error {
 		return fmt.Errorf("ссылки в заголовках: %w", err)
 	}
 
-	html := assembleDigest(newsHTML)
-
-	if preview {
-		log.Printf("Отправка превью в чат %s…", cfg.TelegramPreviewChatID)
-		return publishPreviewToBot(cfg, html)
-	}
-
-	log.Printf("Публикация в канал %s…", cfg.TelegramChannelID)
-	return publishToChannel(cfg, html)
+	log.Printf("Отправка превью в чат %s…", cfg.TelegramPreviewChatID)
+	return publishPreview(cfg, assembleDigest(newsHTML))
 }
