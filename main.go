@@ -1,16 +1,15 @@
 // Tree Shield VPN — автономный бот пятничного дайджеста.
 //
 // Сборка: go build -o treesheild-newsbot .
-// Разовый запуск (без ожидания пятницы): ./treesheild-newsbot -run-once
-// Планировщик: каждую пятницу в 18:00 по TZ из .env (по умолчанию Москва).
-//
-// Шапка, подзаголовок и прощание — фиксированный HTML в format.go.
-// Gemini генерирует только блок из 5 новостей.
+// Превью в чат с ботом: ./treesheild-newsbot -preview
+// Публикация в канал:  ./treesheild-newsbot -run-once
+// Планировщик:         ./treesheild-newsbot
 package main
 
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -21,59 +20,74 @@ import (
 )
 
 func main() {
-	runOnce := flag.Bool("run-once", false, "сразу собрать и опубликовать дайджест (для проверки)")
+	preview := flag.Bool("preview", false, "собрать дайджест и отправить вам в личку с ботом")
+	runOnce := flag.Bool("run-once", false, "сразу собрать и опубликовать дайджест в канал")
 	flag.Parse()
 
-	cfg, err := LoadConfig()
+	if *preview && *runOnce {
+		log.Fatal("укажите только один флаг: -preview или -run-once")
+	}
+
+	cfg, err := LoadConfig(!*preview)
 	if err != nil {
 		log.Fatalf("конфиг: %v", err)
 	}
+	if *preview {
+		if err := cfg.validatePreview(); err != nil {
+			log.Fatalf("конфиг: %v", err)
+		}
+	}
 
-	log.Printf("Tree Shield NewsBot | TZ=%s | модель=%s | медиа=%s",
-		cfg.Timezone, cfg.GeminiModel, cfg.MediaType)
+	log.Printf("Tree Shield NewsBot | TZ=%s | модель=%s",
+		cfg.Timezone, cfg.GeminiModel)
 
-	if *runOnce {
-		if err := runDigest(cfg); err != nil {
+	switch {
+	case *preview:
+		if err := runDigest(cfg, true); err != nil {
+			log.Fatalf("превью: %v", err)
+		}
+	case *runOnce:
+		if err := runDigest(cfg, false); err != nil {
 			log.Fatalf("дайджест: %v", err)
 		}
-		return
+	default:
+		scheduler, err := startScheduler(cfg)
+		if err != nil {
+			log.Fatalf("планировщик: %v", err)
+		}
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+		<-sig
+		log.Println("остановка…")
+		_ = scheduler.Shutdown()
 	}
-
-	if err := startScheduler(cfg); err != nil {
-		log.Fatalf("планировщик: %v", err)
-	}
-
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-	<-sig
-	log.Println("остановка")
 }
 
-func startScheduler(cfg Config) error {
+func startScheduler(cfg Config) (gocron.Scheduler, error) {
 	scheduler, err := gocron.NewScheduler(gocron.WithLocation(cfg.Timezone))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	_, err = scheduler.NewJob(
 		gocron.CronJob("0 18 * * 5", false),
 		gocron.NewTask(func() {
-			if err := runDigest(cfg); err != nil {
+			if err := runDigest(cfg, false); err != nil {
 				log.Printf("ошибка дайджеста: %v", err)
 			}
 		}),
 		gocron.WithName("friday-digest"),
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	scheduler.Start()
-	log.Printf("Планировщик запущен: пятница 18:00 (%s). Жду…", cfg.Timezone)
-	select {}
+	log.Printf("Планировщик запущен: пятница 18:00 (%s). Ctrl+C для выхода.", cfg.Timezone)
+	return scheduler, nil
 }
 
-func runDigest(cfg Config) error {
+func runDigest(cfg Config, preview bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
@@ -94,9 +108,19 @@ func runDigest(cfg Config) error {
 		return err
 	}
 
+	// Ссылки ищем по всей ленте (95+), не только по 32 статьям в промпте.
+	newsHTML = ensureNewsLinks(newsHTML, articles)
+	if err := validateNewsLinks(newsHTML); err != nil {
+		return fmt.Errorf("ссылки в заголовках: %w", err)
+	}
+
 	html := assembleDigest(newsHTML)
 
-	log.Printf("Публикация в Telegram: %s", escapeForLog(html))
+	if preview {
+		log.Printf("Отправка превью в чат %s…", cfg.TelegramPreviewChatID)
+		return publishPreviewToBot(cfg, html)
+	}
 
+	log.Printf("Публикация в канал…")
 	return publishToChannel(cfg, html)
 }

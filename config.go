@@ -10,45 +10,44 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// Пути к локальным медиа для первого сообщения в канале.
-const (
-	PreviewImagePath     = "assets/digest_preview.jpg"
-	PreviewStickerPath   = "assets/digest_sticker.tgs"
-	PreviewAnimationPath = "assets/digest_preview.webm"
-)
+// systemPrompt — тон «по-человечески»; шапка и прощание — в format.go.
+const systemPrompt = `Редактор IT-дайджеста для аудитории в России. Выбери 6 тем недели: VPN, блокировки, приватность, ИБ.
 
-// systemPrompt — короткая инструкция (экономия токенов). Шапка/подвал — в format.go.
-const systemPrompt = `Редактор IT-дайджеста. Из ленты за 7 дней выбери 5 главных тем: VPN, блокировки, приватность, ИБ.
-Ответ — только 5 блоков (между блоками пустая строка):
+Пункты 1–5 — про Россию (приоритет): Роскомнадзор, Госдума, Минцифры, VPN, Telegram, Яндекс, рунет, операторы. Если темы есть в ленте — минимум 4 из 5 про РФ.
+Пункт 6 — одна главная ЗАРУБЕЖНАЯ новость (США, ЕС и т.д.), не про Россию.
+
+Пиши кратко. Заголовок — короткая фраза (до 10 слов, до 80 символов): суть своими словами, не копируй длинный title из ленты.
+Под заголовком РОВНО 2 коротких предложения.
+
+СТРОГО 6 пунктов: <b>1.</b> … <b>6.</b>
 <b>N. Заголовок</b>
-2–3 предложения: факт, кого касается, последствия.
-Запрещено: emoji, шапка, прощание, реклама Tree Shield, юмор, markdown, ссылки. Тег <b> — только в строке заголовка пункта.`
+два предложения
+
+Запрещено: emoji, вступления, шапка, прощание, реклама Tree Shield, markdown, ссылки в тексте, абзацы длиннее двух предложений.
+Тег <b> — только в строке заголовка.`
 
 type Config struct {
-	TelegramToken      string
-	TelegramChannelID  string
-	GeminiAPIKey       string
-	GeminiModel        string
-	Timezone           *time.Location
-	MediaType string
+	TelegramToken         string
+	TelegramChannelID     string
+	TelegramPreviewChatID string // личный чат с ботом для -preview
+	GeminiAPIKey          string
+	GeminiModel           string
+	Timezone              *time.Location
 }
 
-func LoadConfig() (Config, error) {
+func LoadConfig(requireTelegram bool) (Config, error) {
 	_ = godotenv.Load()
 
 	cfg := Config{
-		TelegramToken:       strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")),
-		TelegramChannelID:   strings.TrimSpace(os.Getenv("TELEGRAM_CHANNEL_ID")),
-		GeminiAPIKey:        strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),
-		GeminiModel:         strings.TrimSpace(os.Getenv("GEMINI_MODEL")),
-		MediaType: strings.ToLower(strings.TrimSpace(os.Getenv("MEDIA_TYPE"))),
+		TelegramToken:         strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")),
+		TelegramChannelID:     strings.TrimSpace(os.Getenv("TELEGRAM_CHANNEL_ID")),
+		TelegramPreviewChatID: strings.TrimSpace(os.Getenv("TELEGRAM_PREVIEW_CHAT_ID")),
+		GeminiAPIKey:          strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),
+		GeminiModel:           strings.TrimSpace(os.Getenv("GEMINI_MODEL")),
 	}
 
 	if cfg.GeminiModel == "" {
 		cfg.GeminiModel = "gemini-2.5-flash"
-	}
-	if cfg.MediaType == "" {
-		cfg.MediaType = "photo"
 	}
 	tzName := strings.TrimSpace(os.Getenv("TZ"))
 	if tzName == "" {
@@ -60,11 +59,13 @@ func LoadConfig() (Config, error) {
 	}
 	cfg.Timezone = loc
 
-	if cfg.TelegramToken == "" {
-		return cfg, fmt.Errorf("TELEGRAM_BOT_TOKEN не задан")
-	}
-	if cfg.TelegramChannelID == "" {
-		return cfg, fmt.Errorf("TELEGRAM_CHANNEL_ID не задан")
+	if requireTelegram {
+		if cfg.TelegramToken == "" {
+			return cfg, fmt.Errorf("TELEGRAM_BOT_TOKEN не задан")
+		}
+		if cfg.TelegramChannelID == "" {
+			return cfg, fmt.Errorf("TELEGRAM_CHANNEL_ID не задан")
+		}
 	}
 	if cfg.GeminiAPIKey == "" {
 		return cfg, fmt.Errorf("GEMINI_API_KEY не задан")
@@ -73,19 +74,30 @@ func LoadConfig() (Config, error) {
 	return cfg, nil
 }
 
-// channelTarget — куда публиковать (числовой ID или @username).
-type channelTarget struct {
+// chatTarget — чат Telegram: личка (положительный id), канал (-100…) или @username.
+type chatTarget struct {
 	ChatID   int64
 	Username string // с префиксом @
 }
 
-func parseChannelTarget(raw string) (channelTarget, error) {
+func parseChatTarget(raw, envName string) (chatTarget, error) {
 	if strings.HasPrefix(raw, "@") {
-		return channelTarget{Username: raw}, nil
+		return chatTarget{Username: raw}, nil
 	}
 	id, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil {
-		return channelTarget{}, fmt.Errorf("TELEGRAM_CHANNEL_ID: ожидается @channel или -100…: %w", err)
+		return chatTarget{}, fmt.Errorf("%s: ожидается числовой id или @username: %w", envName, err)
 	}
-	return channelTarget{ChatID: id}, nil
+	return chatTarget{ChatID: id}, nil
+}
+
+func (cfg Config) validatePreview() error {
+	if cfg.TelegramToken == "" {
+		return fmt.Errorf("TELEGRAM_BOT_TOKEN не задан")
+	}
+	if cfg.TelegramPreviewChatID == "" {
+		return fmt.Errorf(`TELEGRAM_PREVIEW_CHAT_ID не задан — напишите боту /start, затем откройте:
+https://api.telegram.org/bot<ТОКЕН>/getUpdates и скопируйте "chat":{"id":123456789}`)
+	}
+	return nil
 }

@@ -1,0 +1,5 @@
+.git
+.env
+treesheild-newsbot
+*.md
+deploy/

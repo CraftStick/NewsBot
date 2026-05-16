@@ -17,11 +17,22 @@ var feedSources = []struct {
 	Name string
 	URL  string
 }{
-	// ——— Русскоязычные ———
+	// ——— Россия: регуляторика, VPN, мессенджеры ———
+	{Name: "Google News — Роскомнадзор", URL: "https://news.google.com/rss/search?q=%D0%A0%D0%BE%D1%81%D0%BA%D0%BE%D0%BC%D0%BD%D0%B0%D0%B4%D0%B7%D0%BE%D1%80+VPN+%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%BA%D0%B0&hl=ru&gl=RU&ceid=RU:ru"},
+	{Name: "Google News — Госдума и VPN", URL: "https://news.google.com/rss/search?q=%D0%93%D0%BE%D1%81%D0%B4%D1%83%D0%BC%D0%B0+VPN+%D0%B8%D0%BD%D1%82%D0%B5%D1%80%D0%BD%D0%B5%D1%82&hl=ru&gl=RU&ceid=RU:ru"},
+	{Name: "Google News — Telegram в РФ", URL: "https://news.google.com/rss/search?q=%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC+%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%BA%D0%B0+%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F&hl=ru&gl=RU&ceid=RU:ru"},
+	{Name: "Google News — Яндекс и интернет", URL: "https://news.google.com/rss/search?q=%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81+%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%BA%D0%B0+%D0%BC%D0%B5%D1%81%D1%81%D0%B5%D0%BD%D0%B4%D0%B6%D0%B5%D1%80&hl=ru&gl=RU&ceid=RU:ru"},
+	{Name: "Google News — Минцифры и рунет", URL: "https://news.google.com/rss/search?q=%D0%9C%D0%B8%D0%BD%D1%86%D0%B8%D1%84%D1%80%D1%8B+VPN+%D1%80%D1%83%D0%BD%D0%B5%D1%82&hl=ru&gl=RU&ceid=RU:ru"},
+	{Name: "Роскомсвобода", URL: "https://roskomsvoboda.org/feed/"},
+	{Name: "OpenNet", URL: "https://www.opennet.ru/opennews/opennews_all_utf.rss"},
+	{Name: "Meduza", URL: "https://meduza.io/rss/all"},
+	{Name: "Lenta.ru — интернет", URL: "https://lenta.ru/rss/news/internet"},
+
+	// ——— Русскоязычные IT ———
 	{Name: "Habr — Информационная безопасность", URL: "https://habr.com/ru/rss/hub/infosecurity/"},
-	{Name: "Habr — Сети", URL: "https://habr.com/ru/rss/hub/networks/"},
-	{Name: "Habr — Администрирование", URL: "https://habr.com/ru/rss/hub/admin/"},
+	{Name: "Habr — Разработка", URL: "https://habr.com/ru/rss/flows/develop/"},
 	{Name: "VC.ru", URL: "https://vc.ru/rss"},
+	{Name: "3DNews", URL: "https://www.3dnews.ru/news/rss/"},
 	{Name: "SecurityLab", URL: "https://www.securitylab.ru/_Services/export/rss/"},
 	{Name: "Anti-Malware.ru", URL: "https://www.anti-malware.ru/news/feed/"},
 	{Name: "CNews", URL: "https://www.cnews.ru/inc/rss/news.xml"},
@@ -30,12 +41,6 @@ var feedSources = []struct {
 	{Name: "4pda", URL: "https://4pda.to/feed/"},
 	{Name: "IT-World", URL: "https://www.it-world.ru/rss/"},
 	{Name: "Kaspersky — блог", URL: "https://www.kaspersky.ru/blog/feed/"},
-	{Name: "Positive Technologies", URL: "https://www.ptsecurity.com/ru-ru/research/analytics/feed/"},
-	{Name: "OpenNet", URL: "https://www.opennet.ru/opennews/opennews_all_utf.rss"},
-	{Name: "Роскомсвобода", URL: "https://roskomsvoboda.org/feed/"},
-	{Name: "Lenta.ru — интернет", URL: "https://lenta.ru/rss/news/internet"},
-	{Name: "РБК — технологии", URL: "https://rssexport.rbc.ru/rbcnews/technology/20/full.rss"},
-	{Name: "TJournal", URL: "https://tjournal.ru/rss/all"},
 	{Name: "Google News — VPN и блокировки (RU)", URL: "https://news.google.com/rss/search?q=VPN+%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%BA%D0%B0+%D0%BE%D0%B1%D1%85%D0%BE%D0%B4+%D0%BF%D1%80%D0%B8%D0%B2%D0%B0%D1%82%D0%BD%D0%BE%D1%81%D1%82%D1%8C&hl=ru&gl=RU&ceid=RU:ru"},
 	{Name: "Google News — рунет и цензура (RU)", URL: "https://news.google.com/rss/search?q=%D1%80%D1%83%D0%BD%D0%B5%D1%82+%D1%86%D0%B5%D0%BD%D0%B7%D1%83%D1%80%D0%B0+%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%BA%D0%B0+%D0%BC%D0%B5%D1%81%D1%81%D0%B5%D0%BD%D0%B4%D0%B6%D0%B5%D1%80&hl=ru&gl=RU&ceid=RU:ru"},
 
@@ -43,7 +48,6 @@ var feedSources = []struct {
 	{Name: "Reddit r/VPN", URL: "https://www.reddit.com/r/VPN/.rss"},
 	{Name: "Reddit r/privacy", URL: "https://www.reddit.com/r/privacy/.rss"},
 	{Name: "Reddit r/technology", URL: "https://www.reddit.com/r/technology/.rss"},
-	{Name: "Reddit r/ru", URL: "https://www.reddit.com/r/ru/.rss"},
 	{Name: "Google News — VPN censorship (EN)", URL: "https://news.google.com/rss/search?q=VPN+censorship+blocking+bypass&hl=en-US&gl=US&ceid=US:en"},
 }
 
@@ -54,25 +58,55 @@ type Article struct {
 	Link        string
 	Summary     string
 	PublishedAt time.Time
+	RUPriority  int // выше = приоритетнее для дайджеста про РФ
 }
 
 // titleKeywords — фильтр по заголовку (регистронезависимо, подстрока).
 var titleKeywords = []string{
 	"vpn", "блокировк", "обход", "приватность", "рунет",
 	"цензур", "запрет", "разблок", "мессенджер", "шифрован",
-	"взлом", "кибер", "утечк", "тспу", "роском",
-	"censorship", "privacy", "firewall", "dpi", "proxy",
-	"telegram", "whatsapp", "интернет",
+	"взлом", "кибер", "утечк", "тспу", "роском", "ркн",
+	"госдум", "минцифр", "законопроект", "регулятор",
+	"telegram", "телеграм", "whatsapp", "яндекс", "сбер",
+	"censorship", "privacy", "firewall", "dpi", "proxy", "интернет",
+}
+
+// ruBoostKeywords — повышают приоритет статей про Россию в ленте для Gemini.
+var ruBoostKeywords = []string{
+	"россия", "россий", "рф", "рунет", "москв",
+	"роскомнадзор", "ркн", "госдум", "минцифр", "кремл",
+	"telegram", "телеграм", "яндекс", "whatsapp", "госуслуг",
+	"суверен", "национальн", "оператор", "мегафон", "мтс", "билайн",
 }
 
 // Лимиты для Gemini: меньше входа и RSS-обработки — ниже расход токенов.
 const (
 	maxItemsPerFeed     = 12 // свежих записей с одной ленты
-	maxArticlesInPrompt = 28 // в запрос к модели (уже отсортированы по дате)
+	maxArticlesInPrompt = 32 // в запрос к модели (приоритет РФ + дата)
 	maxSummaryRunes     = 100
 )
 
-var httpClient = &http.Client{Timeout: 45 * time.Second}
+const (
+	rssFetchAttempts = 2
+	rssRetryDelay    = 2 * time.Second
+)
+
+var httpClient = &http.Client{Timeout: 90 * time.Second}
+
+func fetchFeedWithRetry(ctx context.Context, parser *gofeed.Parser, url string) (*gofeed.Feed, error) {
+	var lastErr error
+	for attempt := 1; attempt <= rssFetchAttempts; attempt++ {
+		feed, err := parser.ParseURLWithContext(url, ctx)
+		if err == nil {
+			return feed, nil
+		}
+		lastErr = err
+		if attempt < rssFetchAttempts && ctx.Err() == nil {
+			time.Sleep(rssRetryDelay)
+		}
+	}
+	return nil, lastErr
+}
 
 func fetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, error) {
 	since := now.Add(-7 * 24 * time.Hour)
@@ -90,9 +124,9 @@ func fetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, error) 
 		default:
 		}
 
-		feed, err := parser.ParseURLWithContext(src.URL, ctx)
+		feed, err := fetchFeedWithRetry(ctx, parser, src.URL)
 		if err != nil {
-			log.Printf("RSS %q: %v", src.Name, err)
+			log.Printf("RSS %q: пропуск (%v)", src.Name, err)
 			continue
 		}
 
@@ -126,12 +160,15 @@ func fetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, error) 
 			seen[key] = struct{}{}
 			perFeed++
 
+			title := cleanText(item.Title)
+			summary := cleanText(shortSummary(item))
 			out = append(out, Article{
 				Source:      src.Name,
-				Title:       cleanText(item.Title),
+				Title:       title,
 				Link:        link,
-				Summary:     cleanText(shortSummary(item)),
+				Summary:     summary,
 				PublishedAt: pub.In(now.Location()),
+				RUPriority:  ruNewsPriority(title, summary),
 			})
 		}
 	}
@@ -139,12 +176,27 @@ func fetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, error) 
 	if len(out) == 0 {
 		return nil, fmt.Errorf("за последние 7 дней не найдено статей по ключевым словам")
 	}
-	sortArticlesByDate(out)
+	sortArticlesForPrompt(out)
 	return out, nil
 }
 
-func sortArticlesByDate(articles []Article) {
+func ruNewsPriority(title, summary string) int {
+	text := strings.ToLower(title + " " + summary)
+	score := 0
+	for _, kw := range ruBoostKeywords {
+		if strings.Contains(text, kw) {
+			score++
+		}
+	}
+	return score
+}
+
+// sortArticlesForPrompt — сначала новости про РФ, внутри группы по дате.
+func sortArticlesForPrompt(articles []Article) {
 	sort.Slice(articles, func(i, j int) bool {
+		if articles[i].RUPriority != articles[j].RUPriority {
+			return articles[i].RUPriority > articles[j].RUPriority
+		}
 		return articles[i].PublishedAt.After(articles[j].PublishedAt)
 	})
 }
@@ -235,13 +287,14 @@ func shortSource(name string) string {
 func buildNewsDigestPrompt(articles []Article) string {
 	articles = articlesForPrompt(articles)
 	var b strings.Builder
-	b.WriteString("Лента 7д (↓новее):\n")
+	b.WriteString("Лента 7д (приоритет — Россия/рунет, ↓новее):\n")
 	for i, a := range articles {
-		line := fmt.Sprintf("%d.%s|%s|%s",
+		line := fmt.Sprintf("%d.%s|%s|%s|%s",
 			i+1,
 			a.PublishedAt.Format("02.01"),
 			shortSource(a.Source),
 			a.Title,
+			a.Link,
 		)
 		if a.Summary != "" {
 			line += "|" + a.Summary

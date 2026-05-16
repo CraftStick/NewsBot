@@ -1,0 +1,26 @@
+[Unit]
+Description=Tree Shield VPN Friday News Digest Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=newsbot
+Group=newsbot
+WorkingDirectory=/opt/treesheild-newsbot
+EnvironmentFile=/opt/treesheild-newsbot/.env
+ExecStart=/opt/treesheild-newsbot/treesheild-newsbot
+Restart=on-failure
+RestartSec=30
+# RSS + Gemini могут занимать несколько минут
+TimeoutStartSec=0
+
+# Безопасность (минимум прав)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/treesheild-newsbot
+
+[Install]
+WantedBy=multi-user.target
