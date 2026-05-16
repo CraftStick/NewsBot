@@ -1,7 +1,7 @@
 // Tree Shield VPN — автономный бот пятничного дайджеста.
 //
 // Сборка: go build -o treesheild-newsbot .
-// Превью в личку:     ./treesheild-newsbot -preview
+// Превью в личку (копировать в канал): ./treesheild-newsbot -preview
 // Сразу в канал:      ./treesheild-newsbot -run-once
 // В канал через 1м:   ./treesheild-newsbot -run-in 1m
 // Планировщик:        ./treesheild-newsbot  (CRON_SCHEDULE в .env)

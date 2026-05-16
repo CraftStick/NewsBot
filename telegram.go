@@ -50,15 +50,32 @@ func (cfg Config) validateChannel() error {
 }
 
 func publishToChannel(cfg Config, htmlText string) error {
-	return publishDigest(cfg, cfg.TelegramChannelID, "TELEGRAM_CHANNEL_ID", htmlText, false)
+	return publishHTML(cfg, cfg.TelegramChannelID, "TELEGRAM_CHANNEL_ID", htmlText, false)
 }
 
+// publishPreviewToBot: подсказка + чистый дайджест (удобно скопировать в канал вручную).
 func publishPreviewToBot(cfg Config, htmlText string) error {
-	const label = "<b>🧪 Тест дайджеста</b> <i>(превью, в канал не публикуется)</i>\n\n"
-	return publishDigest(cfg, cfg.TelegramPreviewChatID, "TELEGRAM_PREVIEW_CHAT_ID", label+htmlText, true)
+	bot, err := connectTelegram(cfg.TelegramToken)
+	if err != nil {
+		return err
+	}
+	target, err := parseChatTarget(cfg.TelegramPreviewChatID, "TELEGRAM_PREVIEW_CHAT_ID")
+	if err != nil {
+		return err
+	}
+
+	const hint = "<i>Превью готово.</i> Скопируйте <b>следующее</b> сообщение и опубликуйте в канал вручную — так сохранятся анимированные эмодзи."
+	if err := sendHTML(bot, target, hint, true); err != nil {
+		return err
+	}
+	if err := sendHTML(bot, target, htmlText, true); err != nil {
+		return err
+	}
+	log.Printf("Превью: 2 сообщения в личку (второе — для копирования в канал)")
+	return nil
 }
 
-func publishDigest(cfg Config, destination, envName, htmlText string, isPreview bool) error {
+func publishHTML(cfg Config, destination, envName, htmlText string, isPreview bool) error {
 	if len([]rune(htmlText)) > telegramMaxMessage {
 		return fmt.Errorf("сообщение слишком длинное для Telegram (%d симв., лимит %d)",
 			len([]rune(htmlText)), telegramMaxMessage)
@@ -68,10 +85,16 @@ func publishDigest(cfg Config, destination, envName, htmlText string, isPreview 
 	if err != nil {
 		return err
 	}
-
 	target, err := parseChatTarget(destination, envName)
 	if err != nil {
 		return err
+	}
+	return sendHTML(bot, target, htmlText, isPreview)
+}
+
+func sendHTML(bot *tgbotapi.BotAPI, target chatTarget, htmlText string, isPreview bool) error {
+	if len([]rune(htmlText)) > telegramMaxMessage {
+		return fmt.Errorf("сообщение слишком длинное (%d симв.)", len([]rune(htmlText)))
 	}
 
 	var msg tgbotapi.MessageConfig
