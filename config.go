@@ -47,12 +47,15 @@ const systemPrompt = `Редактор IT-дайджеста для аудито
 Запрещено: emoji, вступления, шапка, прощание, реклама Tree Shield, markdown, ссылки в тексте, абзацы длиннее двух предложений.
 Тег <b> — только в строке заголовка.`
 
+const defaultCronSchedule = "0 18 * * 5" // пятница 18:00
+
 type Config struct {
 	TelegramToken         string
 	TelegramChannelID     string
 	TelegramPreviewChatID string // личный чат с ботом для -preview
 	GeminiAPIKey          string
 	GeminiModel           string
+	CronSchedule          string
 	Timezone              *time.Location
 }
 
@@ -69,6 +72,10 @@ func LoadConfig(requireTelegram bool) (Config, error) {
 
 	if cfg.GeminiModel == "" {
 		cfg.GeminiModel = "gemini-2.5-flash"
+	}
+	cfg.CronSchedule = strings.TrimSpace(os.Getenv("CRON_SCHEDULE"))
+	if cfg.CronSchedule == "" {
+		cfg.CronSchedule = defaultCronSchedule
 	}
 	tzName := strings.TrimSpace(os.Getenv("TZ"))
 	if tzName == "" {

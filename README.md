@@ -7,12 +7,34 @@
 ```bash
 cp .env.example .env   # заполните ключи
 make build
-./treesheild-newsbot -preview    # тест в личку с ботом
-./treesheild-newsbot -run-once   # разовая публикация в канал
-./treesheild-newsbot             # планировщик: пятница 18:00 (TZ из .env)
+./treesheild-newsbot -preview       # тест в личку с ботом
+./treesheild-newsbot -run-once      # сразу в канал
+./treesheild-newsbot -run-in 1m     # в канал через минуту (один раз)
+./treesheild-newsbot                # по расписанию CRON_SCHEDULE из .env
+./treesheild-newsbot -cron '*/1 * * * *'   # тест: каждую минуту (перебивает .env)
 ```
 
-Бот должен быть **админом канала** с правом публикации сообщений.
+Бот должен быть **админом канала** с правом «Публикация сообщений».
+
+### Подключить тестовый канал
+
+1. Создайте канал в Telegram.
+2. **Управление каналом → Администраторы → Добавить** вашего бота (с правом публиковать посты).
+3. В `.env` укажите канал:
+   - публичный: `TELEGRAM_CHANNEL_ID=@your_channel`
+   - приватный: id вида `-1001234567890` (перешлите любой пост из канала боту [@RawDataBot](https://t.me/RawDataBot) или смотрите `getUpdates`).
+4. Проверка: `./treesheild-newsbot -run-once` или `-run-in 1m`.
+
+### Тест по расписанию (каждую минуту)
+
+В `.env` на сервере:
+
+```env
+CRON_SCHEDULE=*/1 * * * *
+```
+
+Перезапуск: `sudo systemctl restart treesheild-newsbot`.  
+**После теста верните** `CRON_SCHEDULE=0 18 * * 5` (пятница 18:00).
 
 ## Деплой на VPS (systemd)
 
@@ -63,5 +85,6 @@ docker run --rm --env-file .env treesheild-newsbot -run-once
 | `GEMINI_API_KEY` | Ключ Google AI Studio |
 | `GEMINI_MODEL` | По умолчанию `gemini-2.5-flash` |
 | `TZ` | По умолчанию `Europe/Moscow` |
+| `CRON_SCHEDULE` | По умолчанию `0 18 * * 5`; для теста `*/1 * * * *` |
 
 Файл `.env` не коммитить.
