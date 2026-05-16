@@ -116,6 +116,9 @@ func (cfg Config) validatePreview() error {
 	if cfg.TelegramToken == "" {
 		return fmt.Errorf("TELEGRAM_BOT_TOKEN не задан")
 	}
+	if err := verifyTelegramToken(cfg.TelegramToken); err != nil {
+		return err
+	}
 	if cfg.TelegramPreviewChatID == "" {
 		return fmt.Errorf(`TELEGRAM_PREVIEW_CHAT_ID не задан — напишите боту /start, затем откройте:
 https://api.telegram.org/bot<ТОКЕН>/getUpdates и скопируйте "chat":{"id":123456789}`)
