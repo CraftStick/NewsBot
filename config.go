@@ -49,17 +49,39 @@ const systemPrompt = `Редактор IT-дайджеста для аудито
 
 const defaultCronSchedule = "0 18 * * 5" // пятница 18:00
 
+// DigestMode — куда слать дайджест по расписанию (флаги -run-once / -run-in всегда в канал).
+type DigestMode string
+
+const (
+	DigestModePreview DigestMode = "preview" // только личка (по умолчанию)
+	DigestModeChannel DigestMode = "channel" // автопост в TELEGRAM_CHANNEL_ID
+)
+
 type Config struct {
 	TelegramToken         string
 	TelegramChannelID     string
-	TelegramPreviewChatID string // личный чат с ботом для -preview
+	TelegramPreviewChatID string
 	GeminiAPIKey          string
 	GeminiModel           string
 	CronSchedule          string
+	DigestMode            DigestMode
 	Timezone              *time.Location
 }
 
-func LoadConfig(requireTelegram bool) (Config, error) {
+func (cfg Config) deliversPreview() bool {
+	return cfg.DigestMode != DigestModeChannel
+}
+
+func parseDigestMode(raw string) DigestMode {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "channel", "канал":
+		return DigestModeChannel
+	default:
+		return DigestModePreview
+	}
+}
+
+func LoadConfig() (Config, error) {
 	loadEnv()
 
 	cfg := Config{
@@ -68,6 +90,7 @@ func LoadConfig(requireTelegram bool) (Config, error) {
 		TelegramPreviewChatID: strings.TrimSpace(os.Getenv("TELEGRAM_PREVIEW_CHAT_ID")),
 		GeminiAPIKey:          strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),
 		GeminiModel:           strings.TrimSpace(os.Getenv("GEMINI_MODEL")),
+		DigestMode:            parseDigestMode(os.Getenv("DIGEST_MODE")),
 	}
 
 	if cfg.GeminiModel == "" {
@@ -89,9 +112,6 @@ func LoadConfig(requireTelegram bool) (Config, error) {
 
 	if cfg.GeminiAPIKey == "" {
 		return cfg, fmt.Errorf("GEMINI_API_KEY не задан")
-	}
-	if requireTelegram && cfg.TelegramChannelID == "" {
-		return cfg, fmt.Errorf("TELEGRAM_CHANNEL_ID не задан")
 	}
 
 	return cfg, nil

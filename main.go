@@ -1,10 +1,9 @@
 // Tree Shield VPN — автономный бот пятничного дайджеста.
 //
 // Сборка: go build -o treesheild-newsbot .
-// Превью в личку (копировать в канал): ./treesheild-newsbot -preview
-// Сразу в канал:      ./treesheild-newsbot -run-once
-// В канал через 1м:   ./treesheild-newsbot -run-in 1m
-// Планировщик:        ./treesheild-newsbot  (CRON_SCHEDULE в .env)
+// Превью в личку:      ./treesheild-newsbot -preview
+// Планировщик:         ./treesheild-newsbot  (по умолчанию тоже только в личку)
+// В канал вручную:     DIGEST_MODE=channel или -run-once / -run-in
 package main
 
 import (
@@ -41,7 +40,7 @@ func main() {
 		log.Fatal("укажите только один режим: -preview, -run-once или -run-in")
 	}
 
-	cfg, err := LoadConfig(!*preview)
+	cfg, err := LoadConfig()
 	if err != nil {
 		log.Fatalf("конфиг: %v", err)
 	}
@@ -49,17 +48,14 @@ func main() {
 		cfg.CronSchedule = *cronOverride
 	}
 
-	if *preview {
-		if err := cfg.validatePreview(); err != nil {
-			log.Fatalf("конфиг: %v", err)
-		}
-	}
-
-	log.Printf("Tree Shield NewsBot | TZ=%s | модель=%s | cron=%s",
-		cfg.Timezone, cfg.GeminiModel, cfg.CronSchedule)
+	log.Printf("Tree Shield NewsBot | TZ=%s | модель=%s | cron=%s | режим=%s",
+		cfg.Timezone, cfg.GeminiModel, cfg.CronSchedule, cfg.DigestMode)
 
 	switch {
 	case *preview:
+		if err := cfg.validatePreview(); err != nil {
+			log.Fatalf("конфиг: %v", err)
+		}
 		if err := runDigest(cfg, true); err != nil {
 			log.Fatalf("превью: %v", err)
 		}
@@ -76,7 +72,11 @@ func main() {
 		}
 		runChannelAfter(cfg, *runIn)
 	default:
-		if err := cfg.validateChannel(); err != nil {
+		if cfg.deliversPreview() {
+			if err := cfg.validatePreview(); err != nil {
+				log.Fatalf("конфиг: %v", err)
+			}
+		} else if err := cfg.validateChannel(); err != nil {
 			log.Fatalf("конфиг: %v", err)
 		}
 		scheduler, err := startScheduler(cfg)
@@ -120,10 +120,11 @@ func startScheduler(cfg Config) (gocron.Scheduler, error) {
 		return nil, err
 	}
 
+	preview := cfg.deliversPreview()
 	_, err = scheduler.NewJob(
 		gocron.CronJob(cfg.CronSchedule, false),
 		gocron.NewTask(func() {
-			if err := runDigest(cfg, false); err != nil {
+			if err := runDigest(cfg, preview); err != nil {
 				log.Printf("ошибка дайджеста: %v", err)
 			}
 		}),
@@ -134,7 +135,11 @@ func startScheduler(cfg Config) (gocron.Scheduler, error) {
 	}
 
 	scheduler.Start()
-	log.Printf("Планировщик: cron=%q (%s). Ctrl+C для выхода.", cfg.CronSchedule, cfg.Timezone)
+	dest := "канал " + cfg.TelegramChannelID
+	if preview {
+		dest = "личка " + cfg.TelegramPreviewChatID
+	}
+	log.Printf("Планировщик: cron=%q (%s) → %s. Ctrl+C для выхода.", cfg.CronSchedule, cfg.Timezone, dest)
 	return scheduler, nil
 }
 

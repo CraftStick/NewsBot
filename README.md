@@ -7,24 +7,27 @@
 ```bash
 cp .env.example .env   # заполните ключи
 make build
-./treesheild-newsbot -preview       # в личку: подсказка + дайджест для копирования в канал
-./treesheild-newsbot -run-once      # сразу в канал
-./treesheild-newsbot -run-in 1m     # в канал через минуту (один раз)
-./treesheild-newsbot                # по расписанию CRON_SCHEDULE из .env
-./treesheild-newsbot -cron '*/1 * * * *'   # тест: каждую минуту (перебивает .env)
+./treesheild-newsbot -preview       # сейчас: превью в личку
+./treesheild-newsbot                # по CRON — тоже только в личку (DIGEST_MODE=preview)
+./treesheild-newsbot -run-once      # принудительно в канал (редко)
 ```
 
-### Публикация вручную (превью → канал)
+### Обычный workflow: только превью в личку
 
-Удобно, если нужны **анимированные эмодзи** в посте:
+По умолчанию `DIGEST_MODE=preview` — бот **не постит в канал**, только присылает дайджест вам в личку. В канал копируете сами.
 
-1. `sudo -u newsbot /opt/treesheild-newsbot/treesheild-newsbot -preview`
-2. В личке с ботом откройте **второе** сообщение (чистый дайджест).
-3. Скопируйте и вставьте в канал **с аккаунта с Premium** (или опубликуйте «от имени канала» в клиенте).
+1. Пятница: systemd шлёт превью (или вручную `-preview`).
+2. В личке — **второе** сообщение → копируете в ТГК.
 
-Автопостинг в канал ботом: `-run-once` или планировщик (`CRON_SCHEDULE`) — эмодзи будут обычными (🗣 ✅), это ограничение Bot API.
+В `.env` на сервере:
 
-Бот должен быть **админом канала** с правом «Публикация сообщений», если публикуете через `-run-once` / cron.
+```env
+DIGEST_MODE=preview
+TELEGRAM_PREVIEW_CHAT_ID=ваш_id
+# TELEGRAM_CHANNEL_ID можно не указывать
+```
+
+Автопост в канал ботом (если когда-нибудь понадобится): `DIGEST_MODE=channel` и `TELEGRAM_CHANNEL_ID`.
 
 ### Подключить тестовый канал
 
@@ -90,7 +93,8 @@ docker run --rm --env-file .env treesheild-newsbot -run-once
 | Переменная | Назначение |
 |------------|------------|
 | `TELEGRAM_BOT_TOKEN` | Токен @BotFather |
-| `TELEGRAM_CHANNEL_ID` | Канал: `-100…` или `@username` |
+| `DIGEST_MODE` | `preview` (по умолчанию) или `channel` |
+| `TELEGRAM_CHANNEL_ID` | Нужен только при `DIGEST_MODE=channel` |
 | `TELEGRAM_PREVIEW_CHAT_ID` | Ваш chat id для `-preview` |
 | `GEMINI_API_KEY` | Ключ Google AI Studio |
 | `GEMINI_MODEL` | По умолчанию `gemini-2.5-flash` |
