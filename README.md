@@ -1,95 +1,97 @@
 # Tree Shield NewsBot
 
+**English** · [Русский](README.ru.md)
+
 [![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Автономный бот **пятничного IT-дайджеста** для Telegram: собирает RSS за неделю, генерирует 6 новостей через Google Gemini и присылает готовый HTML-пост **в личку**. В канал публикуете сами — так сохраняются кастомные эмодзи Telegram.
+Autonomous **Friday IT digest** bot for Telegram: fetches a week of RSS, generates 6 news items with Google Gemini, and sends a ready-made HTML post to your **DM**. You publish to the channel yourself — that way Telegram custom emoji stay animated.
 
-Изначально сделан для канала [Tree Shield VPN](https://t.me/treeshield); репозиторий можно форкнуть и настроить под свой канал.
-
----
-
-## Возможности
-
-- ~20 RSS-лент (Habr, VC, Meduza, Google News, Reddit и др.) с фильтром по ключевым словам
-- Приоритет новостей про Россию (РКН, VPN, Telegram, Госдума…)
-- 6 пунктов дайджеста: 5 про РФ + 1 зарубежная тема
-- Кликабельные заголовки со ссылками на источники
-- Шаблон поста (шапка, эмодзи, прощание) — в коде, не в промпте
-- Повторы при перегрузке Gemini (503) и запасной режим «по одной новости»
-- Планировщик cron + разовый запуск и тест с задержкой
+Built for the [Tree Shield VPN](https://t.me/treeshield) channel; fork and adapt it for your own project.
 
 ---
 
-## Как это работает
+## Features
+
+- ~20 RSS feeds (Habr, VC, Meduza, Google News, Reddit, etc.) with keyword filtering
+- Priority for Russia-related news (RKN, VPN, Telegram, State Duma…)
+- 6 digest items: 5 focused on Russia + 1 international story
+- Clickable headlines linked to sources
+- Post template (header, emoji, closing) in code, not in the LLM prompt
+- Retries on Gemini overload (503) and fallback one-item-at-a-time generation
+- Cron scheduler, one-shot run, and delayed test (`-in 1m`)
+
+---
+
+## How it works
 
 ```
-RSS (7 дней) → фильтр → Gemini → HTML-тело
+RSS (7 days) → filter → Gemini → HTML body
                               ↓
-                    шаблон format.go
+                    template (format.go)
                               ↓
-              2 сообщения в личку (подсказка + дайджест)
+              2 DMs (hint + digest)
                               ↓
-                    вы копируете в канал
+                 you copy to channel
 ```
 
 ---
 
-## Быстрый старт
+## Quick start
 
-### Требования
+### Requirements
 
 - Go **1.24+**
-- Токен Telegram-бота ([@BotFather](https://t.me/BotFather))
-- API-ключ [Google AI Studio](https://aistudio.google.com/apikey)
+- Telegram bot token ([@BotFather](https://t.me/BotFather))
+- [Google AI Studio](https://aistudio.google.com/apikey) API key
 
-### Установка
+### Setup
 
 ```bash
 git clone https://github.com/CraftStick/NewsBot.git
 cd NewsBot
-cp .env.example .env   # заполните переменные
+cp .env.example .env   # fill in variables
 make build
 ```
 
-Напишите боту **`/start`**, узнайте `chat id` через [getUpdates](https://core.telegram.org/bots/api#getupdates).
+Send **`/start`** to your bot, then get your `chat id` via [getUpdates](https://core.telegram.org/bots/api#getupdates).
 
-### Команды
+### Commands
 
-| Команда | Описание |
-|---------|----------|
-| `./treesheild-newsbot -preview` | Сразу собрать и отправить превью в личку |
-| `./treesheild-newsbot -in 1m` | То же через 1 минуту (тест) |
-| `./treesheild-newsbot` | Фоновый планировщик по `CRON_SCHEDULE` |
-| `./treesheild-newsbot -cron '0 18 * * 5'` | Переопределить cron на один запуск |
+| Command | Description |
+|---------|-------------|
+| `./treesheild-newsbot -preview` | Build digest and send preview to DM now |
+| `./treesheild-newsbot -in 1m` | Same, after 1 minute (test) |
+| `./treesheild-newsbot` | Background scheduler (`CRON_SCHEDULE`) |
+| `./treesheild-newsbot -cron '0 18 * * 5'` | Override cron for this run |
 
-После отправки откройте **второе** сообщение в личке — его копируете в канал.
+Copy the **second** message in DM into your channel.
 
 ---
 
-## Конфигурация (`.env`)
+## Configuration (`.env`)
 
-| Переменная | Обязательно | По умолчанию | Описание |
-|------------|-------------|--------------|----------|
-| `TELEGRAM_BOT_TOKEN` | да | — | Токен бота |
-| `TELEGRAM_PREVIEW_CHAT_ID` | да | — | Ваш числовой chat id |
-| `GEMINI_API_KEY` | да | — | Ключ Gemini API |
-| `GEMINI_MODEL` | нет | `gemini-2.5-flash` | Модель |
-| `TZ` | нет | `Europe/Moscow` | Часовой пояс cron |
-| `CRON_SCHEDULE` | нет | `0 18 * * 5` | Пятница 18:00 |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `TELEGRAM_BOT_TOKEN` | yes | — | Bot token |
+| `TELEGRAM_PREVIEW_CHAT_ID` | yes | — | Your numeric chat id |
+| `GEMINI_API_KEY` | yes | — | Gemini API key |
+| `GEMINI_MODEL` | no | `gemini-2.5-flash` | Model name |
+| `TZ` | no | `Europe/Moscow` | Timezone for cron |
+| `CRON_SCHEDULE` | no | `0 18 * * 5` | Friday 18:00 |
 
-Примеры cron (5 полей):
+Cron examples (5 fields: minute hour dom month dow):
 
 ```env
-CRON_SCHEDULE=0 18 * * 5    # пятница 18:00
-CRON_SCHEDULE=*/5 * * * *   # каждые 5 минут (только для теста)
+CRON_SCHEDULE=0 18 * * 5    # Friday 18:00
+CRON_SCHEDULE=*/5 * * * *   # every 5 minutes (testing only)
 ```
 
-Файл `.env` на сервере ищется рядом с бинарником (`/opt/treesheild-newsbot/.env`).
+On a server, `.env` is loaded next to the binary (`/opt/treesheild-newsbot/.env`).
 
 ---
 
-## Деплой на VPS (Ubuntu/Debian)
+## VPS deploy (Ubuntu/Debian)
 
 ```bash
 git clone https://github.com/CraftStick/NewsBot.git
@@ -101,14 +103,14 @@ sudo systemctl enable --now treesheild-newsbot
 journalctl -u treesheild-newsbot -f
 ```
 
-Обновление:
+Update:
 
 ```bash
 cd NewsBot && git pull && sudo ./deploy/install.sh
 sudo systemctl restart treesheild-newsbot
 ```
 
-Сборка бинарника на Mac/Linux для VPS без Go:
+Cross-compile for a VPS without Go:
 
 ```bash
 make build-linux
@@ -117,7 +119,7 @@ scp treesheild-newsbot user@server:/opt/treesheild-newsbot/
 
 ---
 
-## Docker (опционально)
+## Docker (optional)
 
 ```bash
 cp .env.example .env
@@ -125,59 +127,51 @@ docker build -t treesheild-newsbot .
 docker run --rm --env-file .env treesheild-newsbot -preview
 ```
 
-Для планировщика: `docker run -d --restart unless-stopped --env-file .env treesheild-newsbot`
+Scheduler: `docker run -d --restart unless-stopped --env-file .env treesheild-newsbot`
 
 ---
 
-## Кастомизация
+## Customization
 
-| Что менять | Файл |
-|------------|------|
-| RSS-ленты и ключевые слова | `rss.go` |
-| Промпт для Gemini | `config.go` (`systemPrompt`) |
-| Шапка, эмодзи, оформление поста | `format.go` |
-| Число новостей, длина текста | `format.go`, `gemini.go` |
+| What to change | File |
+|----------------|------|
+| RSS feeds and keywords | `rss.go` |
+| Gemini system prompt | `config.go` (`systemPrompt`) |
+| Post header, emoji, layout | `format.go` |
+| Item count, text length limits | `format.go`, `gemini.go` |
 
-Кастомные эмодзи в `<tg-emoji>` работают в канале только при **ручной** публикации с Premium-аккаунта; Bot API в каналах показывает обычные fallback-emoji.
+Custom `<tg-emoji>` IDs only show as animated in a channel when you **paste manually** from a Premium account; the Bot API falls back to standard emoji in channel posts.
 
 ---
 
-## Разработка
+## Development
 
 ```bash
-make check    # тесты + go vet
-make preview  # сборка и -preview
+make check    # tests + go vet
+make preview  # build and run -preview
 ```
 
-Структура проекта:
-
 ```
-├── main.go          # CLI, планировщик
-├── config.go        # .env, промпт
-├── rss.go           # ленты и фильтры
-├── gemini.go        # генерация
-├── format.go        # шаблон поста
-├── links.go         # ссылки на источники
-├── telegram.go      # отправка в личку
+├── main.go          # CLI, scheduler
+├── config.go        # .env, prompts
+├── rss.go           # feeds and filters
+├── gemini.go        # generation
+├── format.go        # post template
+├── links.go         # source URLs
+├── telegram.go      # DM delivery
 └── deploy/          # systemd + install.sh
 ```
 
 ---
 
-## Безопасность
+## Security
 
-- Не коммитьте `.env` и токены (файл в `.gitignore`)
-- На VPS: `chmod 600 /opt/treesheild-newsbot/.env`
-- При утечке токена — перевыпустите в @BotFather и Google AI Studio
-
----
-
-## Лицензия
-
-[MIT](LICENSE) — используйте и изменяйте свободно, с указанием авторства.
+- Never commit `.env` or tokens (listed in `.gitignore`)
+- On VPS: `chmod 600 /opt/treesheild-newsbot/.env`
+- Rotate keys in @BotFather and Google AI Studio if leaked
 
 ---
 
-## English (short)
+## License
 
-Open-source Friday digest bot: **RSS → Gemini → Telegram DM preview**. Copy the second message to your channel manually. Configure via `.env`, run with `-preview` or systemd cron. See tables above for env vars.
+[MIT](LICENSE) — use and modify freely with attribution.

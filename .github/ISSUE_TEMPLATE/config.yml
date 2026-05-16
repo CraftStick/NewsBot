@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Документация
+  - name: Documentation (EN)
     url: https://github.com/CraftStick/NewsBot#readme
-    about: Настройка и запуск в README
+    about: Setup and usage
+  - name: Документация (RU)
+    url: https://github.com/CraftStick/NewsBot/blob/main/README.ru.md
+    about: Настройка и запуск

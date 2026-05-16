@@ -1,23 +1,27 @@
 ---
 name: Bug report
-about: Сообщить об ошибке
+about: Report a problem
 title: ''
 labels: bug
 assignees: ''
 ---
 
-**Что произошло**
-Кратко опишите проблему.
+**What happened**  
+Brief description of the issue.
 
-**Как воспроизвести**
-1. Команда: `...`
-2. Версия / commit: `git rev-parse --short HEAD`
+**How to reproduce**
+1. Command: `...`
+2. Commit: `git rev-parse --short HEAD`
 
-**Лог**
+**Logs** (remove tokens and API keys)
 ```
-вставьте фрагмент лога без токенов и API-ключей
+paste log excerpt here
 ```
 
-**Окружение**
-- ОС:
-- Go версия (если собирали сами):
+**Environment**
+- OS:
+- Go version (if built locally):
+
+---
+
+**Что произошло** (по-русски, опционально)
