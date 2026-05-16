@@ -152,9 +152,10 @@ func runDigest(cfg Config, preview bool) error {
 	log.Printf("Отобрано статей: %d", len(articles))
 
 	prompt := buildNewsDigestPrompt(articles)
-	log.Printf("Запрос к Gemini (~%d симв., %d статей в контексте)…", len(prompt), len(articlesForPrompt(articles)))
+	inPrompt := len(articlesForPrompt(articles))
+	log.Printf("Запрос к Gemini (~%d симв., %d статей в контексте)…", len(prompt), inPrompt)
 
-	newsHTML, err := generateDigest(ctx, cfg, prompt)
+	newsHTML, err := generateDigest(ctx, cfg, articles)
 	if err != nil {
 		return err
 	}
