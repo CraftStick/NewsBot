@@ -1,4 +1,5 @@
-// Tree Shield VPN — пятничный дайджест: RSS → Gemini → превью в личку.
+// Tree Shield NewsBot — пятничный дайджест: RSS → Gemini → превью в личку.
+// https://github.com/CraftStick/NewsBot
 //
 //	go build -o treesheild-newsbot .
 //	./treesheild-newsbot -preview      # сразу в личку
