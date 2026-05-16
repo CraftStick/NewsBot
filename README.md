@@ -5,8 +5,9 @@
 ```bash
 cp .env.example .env
 make build
-./treesheild-newsbot -preview   # один раз
-./treesheild-newsbot            # планировщик (пятница 18:00 MSK)
+./treesheild-newsbot -preview      # сразу в личку
+./treesheild-newsbot -in 1m        # тест: в личку через минуту
+./treesheild-newsbot               # планировщик (пятница 18:00 MSK)
 ```
 
 1. Напишите боту `/start`.

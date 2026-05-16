@@ -1,8 +1,9 @@
 // Tree Shield VPN — пятничный дайджест: RSS → Gemini → превью в личку.
 //
 //	go build -o treesheild-newsbot .
-//	./treesheild-newsbot -preview   # один раз
-//	./treesheild-newsbot            # по CRON_SCHEDULE из .env
+//	./treesheild-newsbot -preview      # сразу в личку
+//	./treesheild-newsbot -in 1m        # в личку через минуту
+//	./treesheild-newsbot               # по CRON_SCHEDULE из .env
 package main
 
 import (
@@ -19,9 +20,14 @@ import (
 )
 
 func main() {
-	once := flag.Bool("preview", false, "собрать дайджест один раз и выйти")
+	once := flag.Bool("preview", false, "сразу собрать дайджест и отправить в личку")
+	runIn := flag.Duration("in", 0, "через сколько отправить в личку (например 1m, 30s)")
 	cronOverride := flag.String("cron", "", "cron (5 полей), перебивает CRON_SCHEDULE")
 	flag.Parse()
+
+	if *once && *runIn > 0 {
+		log.Fatal("укажите либо -preview, либо -in, не оба")
+	}
 
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -37,10 +43,14 @@ func main() {
 	log.Printf("Tree Shield NewsBot | TZ=%s | модель=%s | cron=%s",
 		cfg.Timezone, cfg.GeminiModel, cfg.CronSchedule)
 
-	if *once {
+	switch {
+	case *once:
 		if err := runDigest(cfg); err != nil {
 			log.Fatalf("дайджест: %v", err)
 		}
+		return
+	case *runIn > 0:
+		runAfter(cfg, *runIn)
 		return
 	}
 
@@ -54,6 +64,25 @@ func main() {
 	<-sig
 	log.Println("остановка…")
 	_ = scheduler.Shutdown()
+}
+
+func runAfter(cfg Config, delay time.Duration) {
+	log.Printf("Дайджест в личку через %s… (Ctrl+C — отмена)", delay)
+	timer := time.NewTimer(delay)
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+
+	select {
+	case <-timer.C:
+		if err := runDigest(cfg); err != nil {
+			log.Fatalf("дайджест: %v", err)
+		}
+	case <-sig:
+		if !timer.Stop() {
+			<-timer.C
+		}
+		log.Println("отменено")
+	}
 }
 
 func startScheduler(cfg Config) (gocron.Scheduler, error) {
