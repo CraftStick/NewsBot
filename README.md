@@ -7,7 +7,7 @@
 
 Autonomous **Friday IT digest** bot for Telegram: fetches a week of RSS, generates 6 news items with Google Gemini, and sends a ready-made HTML post to your **DM**. You publish to the channel yourself — that way Telegram custom emoji stay animated.
 
-Built for the [Tree Shield VPN](https://t.me/treeshield) channel; fork and adapt it for your own project.
+Built for the Tree Shield VPN channel; fork and adapt it for your own project.
 
 ---
 
