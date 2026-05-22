@@ -127,7 +127,8 @@ func pickUnusedArticle(articles []Article, used map[string]bool, preferForeign b
 		if !preferForeign && isForeign && best != nil {
 			continue
 		}
-		if best == nil || a.RUPriority > best.RUPriority {
+		if best == nil || a.PublishedAt.After(best.PublishedAt) ||
+			(a.PublishedAt.Equal(best.PublishedAt) && a.RUPriority > best.RUPriority) {
 			best = a
 		}
 	}

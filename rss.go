@@ -123,7 +123,8 @@ func fetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, error) 
 		default:
 		}
 
-		feed, err := fetchFeedWithRetry(ctx, parser, src.URL)
+		feedURL := googleNewsWhen7dURL(src.URL)
+		feed, err := fetchFeedWithRetry(ctx, parser, feedURL)
 		if err != nil {
 			log.Printf("RSS %q: пропуск (%v)", src.Name, err)
 			continue
@@ -137,14 +138,19 @@ func fetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, error) 
 			if item == nil || item.Title == "" {
 				continue
 			}
-			pub := item.PublishedParsed
-			if pub == nil {
-				pub = item.UpdatedParsed
-			}
-			if pub == nil || pub.Before(since) {
+			pub, ok := itemPublishedAt(item, now.Location())
+			if !ok || pub.Before(since) {
 				continue
 			}
-			if !titleMatchesKeywords(item.Title) {
+			if pub.After(now.Add(24 * time.Hour)) {
+				continue
+			}
+			title := cleanText(item.Title)
+			summary := cleanText(shortSummary(item))
+			if textImpliesOlderThan(title, summary, since) {
+				continue
+			}
+			if !titleMatchesKeywords(title) {
 				continue
 			}
 
@@ -152,21 +158,19 @@ func fetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, error) 
 			if link == "" {
 				link = firstLink(item.Links)
 			}
-			key := dedupeKey(item.Title, link)
-			if _, ok := seen[key]; ok {
+			key := dedupeKey(title, link)
+			if _, dup := seen[key]; dup {
 				continue
 			}
 			seen[key] = struct{}{}
 			perFeed++
 
-			title := cleanText(item.Title)
-			summary := cleanText(shortSummary(item))
 			out = append(out, Article{
 				Source:      src.Name,
 				Title:       title,
 				Link:        link,
 				Summary:     summary,
-				PublishedAt: pub.In(now.Location()),
+				PublishedAt: pub,
 				RUPriority:  ruNewsPriority(title, summary),
 			})
 		}
@@ -289,11 +293,11 @@ func buildNewsDigestPrompt(articles []Article, maxItems int) string {
 		pool = pool[:maxItems]
 	}
 	var b strings.Builder
-	b.WriteString("Лента 7д (приоритет — Россия/рунет, ↓новее):\n")
+	b.WriteString("Лента за последние 7 дней (приоритет — Россия/рунет, ↓новее). Бери только строки с датой в окне:\n")
 	for i, a := range pool {
 		line := fmt.Sprintf("%d.%s|%s|%s|%s",
 			i+1,
-			a.PublishedAt.Format("02.01"),
+			a.PublishedAt.Format("02.01.2006"),
 			shortSource(a.Source),
 			a.Title,
 			a.Link,

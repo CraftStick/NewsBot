@@ -123,6 +123,19 @@ func runDigest(cfg Config) error {
 		return err
 	}
 	log.Printf("Отобрано статей: %d", len(articles))
+	if len(articles) > 0 {
+		newest := articles[0].PublishedAt
+		oldest := articles[len(articles)-1].PublishedAt
+		for _, a := range articles {
+			if a.PublishedAt.After(newest) {
+				newest = a.PublishedAt
+			}
+			if a.PublishedAt.Before(oldest) {
+				oldest = a.PublishedAt
+			}
+		}
+		log.Printf("Диапазон дат в ленте: %s — %s", oldest.Format("02.01.2006"), newest.Format("02.01.2006"))
+	}
 
 	pool := articlesForPrompt(articles)
 	log.Printf("Запрос к Gemini (~%d симв., %d статей)…", len(buildNewsDigestPrompt(articles, 0)), len(pool))
