@@ -2,9 +2,9 @@
 // https://github.com/CraftStick/NewsBot
 //
 //	go build -o treesheild-newsbot .
-//	./treesheild-newsbot -preview      # сразу в личку
+//	./treesheild-newsbot -preview      # в личку + кнопка «Другой дайджест»
 //	./treesheild-newsbot -in 1m        # в личку через минуту
-//	./treesheild-newsbot               # по CRON_SCHEDULE из .env
+//	./treesheild-newsbot               # cron + кнопка /digest в фоне
 package main
 
 import (
@@ -49,6 +49,8 @@ func main() {
 		if err := runDigest(cfg); err != nil {
 			log.Fatalf("дайджест: %v", err)
 		}
+		log.Println("Жду кнопку «Другой дайджест» или /digest. Ctrl+C — выход.")
+		runTelegramBotUntilSignal(cfg)
 		return
 	case *runIn > 0:
 		runAfter(cfg, *runIn)
@@ -60,10 +62,19 @@ func main() {
 		log.Fatalf("планировщик: %v", err)
 	}
 
+	botCtx, botCancel := context.WithCancel(context.Background())
+	defer botCancel()
+	go func() {
+		if err := runTelegramBot(botCtx, cfg); err != nil {
+			log.Printf("telegram bot: %v", err)
+		}
+	}()
+
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
 	log.Println("остановка…")
+	botCancel()
 	_ = scheduler.Shutdown()
 }
 
@@ -106,7 +117,7 @@ func startScheduler(cfg Config) (gocron.Scheduler, error) {
 	}
 
 	scheduler.Start()
-	log.Printf("Планировщик: cron=%q (%s) → личка %s. Ctrl+C для выхода.",
+	log.Printf("Планировщик: cron=%q (%s) → личка %s. Кнопка /digest в боте. Ctrl+C — выход.",
 		cfg.CronSchedule, cfg.Timezone, cfg.TelegramPreviewChatID)
 	return scheduler, nil
 }

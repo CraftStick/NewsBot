@@ -67,6 +67,8 @@ Send **`/start`** to your bot, then get your `chat id` via [getUpdates](https://
 
 Copy the **second** message in DM into your channel.
 
+**Don't like it?** Tap **「🔄 Regenerate digest」** under the first message or send `/digest` (requires the bot process running: `-preview` or `systemctl`).
+
 ---
 
 ## Configuration (`.env`)
