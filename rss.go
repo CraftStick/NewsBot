@@ -39,6 +39,7 @@ var feedSources = []struct {
 	{Name: "ixbt.com", URL: "https://www.ixbt.com/export/news.rss"},
 	{Name: "4pda", URL: "https://4pda.to/feed/"},
 	{Name: "IT-World", URL: "https://www.it-world.ru/rss/"},
+	{Name: "Код Дурова", URL: "https://kod.ru/rss"},
 	{Name: "Kaspersky — блог", URL: "https://www.kaspersky.ru/blog/feed/"},
 	{Name: "Google News — VPN и блокировки (RU)", URL: "https://news.google.com/rss/search?q=VPN+%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%BA%D0%B0+%D0%BE%D0%B1%D1%85%D0%BE%D0%B4+%D0%BF%D1%80%D0%B8%D0%B2%D0%B0%D1%82%D0%BD%D0%BE%D1%81%D1%82%D1%8C&hl=ru&gl=RU&ceid=RU:ru"},
 	{Name: "Google News — рунет и цензура (RU)", URL: "https://news.google.com/rss/search?q=%D1%80%D1%83%D0%BD%D0%B5%D1%82+%D1%86%D0%B5%D0%BD%D0%B7%D1%83%D1%80%D0%B0+%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%BA%D0%B0+%D0%BC%D0%B5%D1%81%D1%81%D0%B5%D0%BD%D0%B4%D0%B6%D0%B5%D1%80&hl=ru&gl=RU&ceid=RU:ru"},
@@ -68,6 +69,9 @@ var titleKeywords = []string{
 	"госдум", "минцифр", "законопроект", "регулятор",
 	"telegram", "телеграм", "whatsapp", "яндекс", "сбер",
 	"censorship", "privacy", "firewall", "dpi", "proxy", "интернет",
+	// Человеческие темы: живее читаются, но остаются в теме приватности/техно.
+	"дуров", "штраф", "мошенн", "слежк", "замедл", "ютуб", "youtube",
+	"госуслуг", "биометри", "санкц", "хакер", "приложени", "вконтакте",
 }
 
 // ruBoostKeywords — повышают приоритет статей про Россию в ленте для Gemini.
@@ -281,8 +285,8 @@ func shortSource(name string) string {
 			return strings.TrimSpace(name[i+len(sep):])
 		}
 	}
-	if len(name) > 18 {
-		return name[:18]
+	if r := []rune(name); len(r) > 18 {
+		return string(r[:18])
 	}
 	return name
 }

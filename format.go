@@ -75,12 +75,20 @@ func splitNewsBlocks(body string) []string {
 	return blocks
 }
 
-var headlineSourceSuffix = regexp.MustCompile(`\s*[-—–|]\s*[\p{L}\p{N}«»"'. ]{1,45}$`)
+// Отсекаем хвост-источник Google News («Заголовок - РИА Новости»): дефис/пайп
+// с пробелами с обеих сторон.
+var headlineSourceSuffix = regexp.MustCompile(`\s+[-|]\s+[\p{L}\p{N}«»"'. ]{1,45}$`)
+
+// Через длинное тире отсекаем ТОЛЬКО явный источник: в «кавычках» или 1–2 слова
+// с заглавной («— Ведомости», «— РИА Новости»). Обычную пунктуацию
+// («VPN в России — что изменится») не трогаем — тире в русском это знак препинания.
+var headlineEmDashSource = regexp.MustCompile(`\s+[—–]\s+(?:«[^»]{1,40}»|(?:[A-ZА-ЯЁ][\p{L}.]*\s*){1,2})$`)
 
 // trimHeadline укорачивает заголовок для Telegram (ссылки подбираются по полному тексту).
 func trimHeadline(s string) string {
 	s = strings.TrimSpace(stripHTML(s))
 	s = headlineSourceSuffix.ReplaceAllString(s, "")
+	s = headlineEmDashSource.ReplaceAllString(s, "")
 	s = strings.TrimSpace(s)
 	runes := []rune(s)
 	if len(runes) <= maxNewsTitleRunes {

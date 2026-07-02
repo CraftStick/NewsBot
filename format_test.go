@@ -22,6 +22,17 @@ func TestTrimHeadline(t *testing.T) {
 	if strings.Contains(stripped, "Интерфакс") {
 		t.Fatalf("source suffix not stripped: %q", stripped)
 	}
+	// Google News приклеивает источник через дефис с пробелами.
+	if got := trimHeadline("Заголовок - РИА Новости"); strings.Contains(got, "РИА") {
+		t.Fatalf("hyphen source not stripped: %q", got)
+	}
+	// Тире как знак препинания внутри заголовка трогать нельзя.
+	if got := trimHeadline("VPN в России — что изменится с осени"); got != "VPN в России — что изменится с осени" {
+		t.Fatalf("punctuation dash over-trimmed: %q", got)
+	}
+	if got := trimHeadline("Роскомнадзор — новый закон о блокировках"); got != "Роскомнадзор — новый закон о блокировках" {
+		t.Fatalf("punctuation dash over-trimmed: %q", got)
+	}
 }
 
 func TestSplitNewsBlocks(t *testing.T) {

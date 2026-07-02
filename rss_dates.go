@@ -9,10 +9,7 @@ import (
 	"github.com/mmcdole/gofeed"
 )
 
-var (
-	staleMonthYearRE = regexp.MustCompile(`(?i)(январ|феврал|март|апрел|мая|июн|июл|август|сентябр|октябр|ноябр|декабр)[а-яё]*\s+(\d{4})`)
-	explicitYearRE   = regexp.MustCompile(`(?:^|[^\d])(20\d{2})(?:[^\d]|$)`)
-)
+var staleMonthYearRE = regexp.MustCompile(`(?i)(январ|феврал|март|апрел|ма[йея]|июн|июл|август|сентябр|октябр|ноябр|декабр)[а-яё]*\s+(\d{4})`)
 
 func monthFromStem(stem string) time.Month {
 	stem = strings.ToLower(stem)
@@ -25,7 +22,7 @@ func monthFromStem(stem string) time.Month {
 		return time.March
 	case strings.HasPrefix(stem, "апрел"):
 		return time.April
-	case strings.HasPrefix(stem, "мая"):
+	case strings.HasPrefix(stem, "ма"): // май/мае/мая (март отсечён выше)
 		return time.May
 	case strings.HasPrefix(stem, "июн"):
 		return time.June
@@ -83,16 +80,6 @@ func textImpliesOlderThan(title, summary string, since time.Time) bool {
 		}
 		end := time.Date(y, month+1, 0, 23, 59, 0, 0, since.Location())
 		if end.Before(since) {
-			return true
-		}
-	}
-
-	for _, m := range explicitYearRE.FindAllStringSubmatch(text, -1) {
-		y, err := strconv.Atoi(m[1])
-		if err != nil {
-			continue
-		}
-		if y < since.Year() {
 			return true
 		}
 	}
