@@ -2,3 +2,5 @@
 treesheild-newsbot
 .DS_Store
 preview_digest.html
+.last_digest
+.last_digest.tmp

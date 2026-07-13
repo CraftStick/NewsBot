@@ -71,6 +71,29 @@ func (tc *telegramController) sendPlain(chatID int64, text string) {
 	}
 }
 
+// sendErrorNotice — простое (без HTML, чтобы текст ошибки ничего не сломал)
+// сообщение с кнопкой пересборки: и уведомление, и напоминание собрать вручную.
+func (tc *telegramController) sendErrorNotice(text string) {
+	msg := tgbotapi.NewMessage(tc.chatID, text)
+	msg.ReplyMarkup = regenerateKeyboard()
+	if _, err := tc.bot.Send(msg); err != nil {
+		log.Printf("telegram: уведомление об ошибке не отправлено: %v", err)
+	}
+}
+
+// notifyDigestFailure шлёт владельцу превью сообщение, если дайджест по
+// расписанию не собрался — иначе о провале узнать неоткуда (только логи).
+func notifyDigestFailure(cfg Config, cause error) {
+	tc, err := newTelegramController(cfg)
+	if err != nil {
+		log.Printf("не удалось создать бота для уведомления об ошибке: %v", err)
+		return
+	}
+	tc.sendErrorNotice("❌ Пятничный дайджест не собрался автоматически.\n\n" +
+		"Причина: " + cause.Error() + "\n\n" +
+		"Нажмите кнопку ниже или отправьте /digest, чтобы собрать вручную.")
+}
+
 func (tc *telegramController) startRegenerate(chatID int64) {
 	if !tc.allowed(chatID) {
 		tc.sendPlain(chatID, "Этот бот доступен только владельцу превью.")

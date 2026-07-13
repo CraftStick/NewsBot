@@ -70,6 +70,9 @@ func main() {
 		}
 	}()
 
+	// Досылаем пятничный дайджест, если его слот пришёлся на простой (ребут).
+	go runCatchUpIfMissed(cfg)
+
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
@@ -108,6 +111,7 @@ func startScheduler(cfg Config) (gocron.Scheduler, error) {
 		gocron.NewTask(func() {
 			if err := runDigest(cfg); err != nil {
 				log.Printf("ошибка дайджеста: %v", err)
+				notifyDigestFailure(cfg, err)
 			}
 		}),
 		gocron.WithName("friday-digest"),
@@ -162,5 +166,11 @@ func runDigest(cfg Config) error {
 	}
 
 	log.Printf("Отправка превью в чат %s…", cfg.TelegramPreviewChatID)
-	return publishPreview(cfg, assembleDigest(newsHTML))
+	if err := publishPreview(cfg, assembleDigest(newsHTML)); err != nil {
+		return err
+	}
+	if err := recordDigestSent(now); err != nil {
+		log.Printf("не удалось записать отметку отправки: %v", err)
+	}
+	return nil
 }
