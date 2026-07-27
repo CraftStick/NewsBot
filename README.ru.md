@@ -179,3 +179,11 @@ make preview  # сборка и -preview
 ## Лицензия
 
 [MIT](LICENSE) — используйте и изменяйте свободно, с указанием авторства.
+
+---
+
+Если было полезно — поставь ⭐, это очень помогает!
+
+If you found this useful, consider leaving a ⭐ — it helps a lot!
+
+</div>
