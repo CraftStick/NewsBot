@@ -31,6 +31,9 @@ func generateDigest(ctx context.Context, cfg Config, articles []Article) (string
 	}
 
 	fullPrompt := buildNewsDigestPrompt(articles, 0)
+	if cfg.PhotoEnabled {
+		fullPrompt += "\n\nДайджест пойдёт в подпись к фото (лимит места). Пиши КОМПАКТНО: заголовок и 2 коротких, но ОБЯЗАТЕЛЬНО законченных предложения; каждый пункт целиком примерно до 110 символов."
+	}
 	body, err := generateDigestBatch(ctx, client, cfg, fullPrompt)
 	if err == nil {
 		return body, nil

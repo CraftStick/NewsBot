@@ -224,17 +224,12 @@ func fitNewsBodyToCaption(newsBody string, maxVisible int) (string, bool) {
 	if captionVisibleLen(assembleDigest(newsBody)) <= maxVisible {
 		return newsBody, true
 	}
-	// Шаг 1: оставить по одному предложению в каждом пункте.
+	// Ужимаем ТОЛЬКО по границе предложений — до одного законченного предложения
+	// в пункте. Слова не рвём: если не влезло и так, вызывающий шлёт фото и текст
+	// раздельно (лучше два сообщения, чем оборванные на полуслове фразы).
 	one := mapItemBodies(newsBody, firstSentence)
 	if captionVisibleLen(assembleDigest(one)) <= maxVisible {
 		return one, true
-	}
-	// Шаг 2: подрезать тела пунктов до убывающего бюджета символов.
-	for _, budget := range []int{130, 100, 80, 60, 45} {
-		trimmed := mapItemBodies(one, func(s string) string { return trimToRunes(s, budget) })
-		if captionVisibleLen(assembleDigest(trimmed)) <= maxVisible {
-			return trimmed, true
-		}
 	}
 	return "", false
 }
@@ -272,16 +267,4 @@ func firstSentence(s string) string {
 		}
 	}
 	return strings.TrimSpace(string(r))
-}
-
-func trimToRunes(s string, max int) string {
-	r := []rune(strings.TrimSpace(s))
-	if len(r) <= max {
-		return string(r)
-	}
-	cut := string(r[:max])
-	if sp := strings.LastIndex(cut, " "); sp > max/2 {
-		cut = cut[:sp]
-	}
-	return strings.TrimSpace(cut) + "…"
 }

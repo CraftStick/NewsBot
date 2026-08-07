@@ -6,41 +6,73 @@ import (
 	"testing"
 )
 
-func TestAssembleDigestForCaption(t *testing.T) {
-	t.Parallel()
-
-	// Длинный дайджест: 6 пунктов по 2 длинных предложения — заведомо больше лимита.
-	long := strings.Repeat("Первое длинное предложение про блокировки VPN и Роскомнадзор в России. "+
-		"Второе не менее длинное предложение с деталями и подробностями события недели. ", 1)
+func makeBody(items [][2]string) string {
 	var b strings.Builder
-	for i := 1; i <= requiredNewsItems; i++ {
-		fmt.Fprintf(&b, "<b>%d. <a href=\"https://example.com/%d\">Заголовок новости номер %d про рунет</a></b>\n%s\n\n", i, i, i, long)
+	for i, it := range items {
+		fmt.Fprintf(&b, "<b>%d. <a href=\"https://example.com/%d\">%s</a></b>\n%s\n\n", i+1, i+1, it[0], it[1])
 	}
-	body := strings.TrimSpace(b.String())
+	return strings.TrimSpace(b.String())
+}
 
-	// Полный дайджест действительно превышает лимит подписи.
-	if got := captionVisibleLen(assembleDigest(body)); got <= telegramMaxCaption {
-		t.Fatalf("ожидали, что полный дайджест длиннее лимита, а он %d", got)
+// Сжатие подписи режет только по границам предложений: тело каждого пункта в
+// результате — либо исходное целиком, либо его первое предложение. Никаких «…».
+func TestCaptionKeepsCompleteSentences(t *testing.T) {
+	t.Parallel()
+	items := [][2]string{
+		{"Масштабный сбой в Рунете из-за Ростелекома", "Российский интернет пережил масштабный сбой 6 августа, затронувший десятки сервисов. Причиной стали неполадки в сетях «Ростелекома»."},
+		{"Госуслуги станут социальной медиаплатформой", "Минцифры планирует превратить портал в полноценную соцсеть. Отдельного мессенджера при этом не будет."},
+		{"Минцифры опровергло запрет соцсетей для детей", "Ведомство опровергло планы ограничить детям доступ к соцсетям. Такое решение остаётся за родителями."},
+		{"Яндекс объяснил работу Алисы до команды", "Компания прокомментировала опасения о прослушивании. Алиса ловит звук до команды по техническим причинам."},
+		{"ФСБ задержала пособников мошенников в Сити", "В Москва-Сити ликвидировали девять точек нелегального обмена. Задержаны их организаторы."},
+		{"Apple временно удалила Telegram из App Store", "Apple на несколько часов убрала мессенджер из магазина. Позже приложение вернулось."},
 	}
+	body := makeBody(items)
 
-	caption, ok := assembleDigestForCaption(body)
+	fitted, ok := fitNewsBodyToCaption(body, telegramMaxCaption)
 	if !ok {
-		t.Fatal("не удалось ужать дайджест под подпись")
+		t.Fatal("ожидали, что дайджест влезает хотя бы по одному предложению")
 	}
-	if n := captionVisibleLen(caption); n > telegramMaxCaption {
-		t.Fatalf("подпись после сжатия всё ещё длинная: %d > %d", n, telegramMaxCaption)
+	if n := captionVisibleLen(assembleDigest(fitted)); n > telegramMaxCaption {
+		t.Fatalf("подпись длиннее лимита: %d", n)
 	}
-	// Все 6 пунктов и ссылки должны сохраниться.
-	if n := countNewsItems(caption); n < requiredNewsItems {
-		t.Fatalf("после сжатия потеряны пункты: %d из %d", n, requiredNewsItems)
+	// Каждое тело — целиком либо ровно первое предложение (без обрыва слова).
+	origBlocks := splitNewsBlocks(body)
+	for i, fb := range splitNewsBlocks(fitted) {
+		got := newsBlockBody(fb)
+		full := newsBlockBody(origBlocks[i])
+		if got != full && got != firstSentence(full) {
+			t.Fatalf("пункт %d обрезан не по границе предложения: %q", i+1, got)
+		}
+		if strings.HasSuffix(got, "…") {
+			t.Fatalf("пункт %d оборван на полуслове: %q", i+1, got)
+		}
 	}
-	if strings.Count(caption, "href=") < requiredNewsItems {
-		t.Fatalf("после сжатия потеряны ссылки")
-	}
+}
 
-	// Короткий дайджест не должен меняться (влезает целиком).
-	short := "<b>1. <a href=\"https://e.com/1\">Кратко</a></b>\nОдно предложение."
-	if _, ok := assembleDigestForCaption(short); !ok {
-		t.Fatal("короткий дайджест должен влезать в подпись")
+// Слишком длинный дайджест не помещается даже по одному предложению — тогда
+// fit возвращает false (вызывающий шлёт фото и полный текст раздельно).
+func TestCaptionFallsBackWhenTooLong(t *testing.T) {
+	t.Parallel()
+	long := "Одно очень длинное и подробное предложение про блокировки VPN, Роскомнадзор, Минцифры и рунет с массой деталей и уточнений на всякий случай."
+	items := make([][2]string, requiredNewsItems)
+	for i := range items {
+		items[i] = [2]string{"Очень длинный заголовок новости номер про рунет и VPN", long + " " + long}
+	}
+	if _, ok := fitNewsBodyToCaption(makeBody(items), telegramMaxCaption); ok {
+		t.Fatal("ожидали fallback (ok=false) для слишком длинного дайджеста")
+	}
+}
+
+func TestFirstSentence(t *testing.T) {
+	t.Parallel()
+	cases := map[string]string{
+		"Первое предложение. Второе предложение.": "Первое предложение.",
+		"Без точки в конце":                       "Без точки в конце",
+		"Вопрос? И ответ.":                        "Вопрос?",
+	}
+	for in, want := range cases {
+		if got := firstSentence(in); got != want {
+			t.Fatalf("firstSentence(%q) = %q, ожидали %q", in, got, want)
+		}
 	}
 }
