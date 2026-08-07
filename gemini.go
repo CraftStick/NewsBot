@@ -128,7 +128,8 @@ func generateSingleNewsItem(
 
 const systemPromptSingle = `Редактор IT-дайджеста. Выбери ОДНУ новость по запросу.
 <b>N. Заголовок</b> — до 10 слов, до 80 символов.
-2 коротких предложения. Без emoji, вступлений, рекламы, markdown, URL.`
+2 коротких предложения. Без emoji, вступлений, рекламы, markdown, URL.
+Бери самое свежее по дате состояние темы, не устаревшую формулировку («готовят/планируют», если событие уже случилось).`
 
 func buildSingleNewsPrompt(feed string, number int, used []string) string {
 	var b strings.Builder

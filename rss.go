@@ -18,11 +18,6 @@ var feedSources = []struct {
 	URL  string
 }{
 	// ——— Россия: регуляторика, VPN, мессенджеры ———
-	{Name: "Google News — Роскомнадзор", URL: "https://news.google.com/rss/search?q=%D0%A0%D0%BE%D1%81%D0%BA%D0%BE%D0%BC%D0%BD%D0%B0%D0%B4%D0%B7%D0%BE%D1%80+VPN+%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%BA%D0%B0&hl=ru&gl=RU&ceid=RU:ru"},
-	{Name: "Google News — Госдума и VPN", URL: "https://news.google.com/rss/search?q=%D0%93%D0%BE%D1%81%D0%B4%D1%83%D0%BC%D0%B0+VPN+%D0%B8%D0%BD%D1%82%D0%B5%D1%80%D0%BD%D0%B5%D1%82&hl=ru&gl=RU&ceid=RU:ru"},
-	{Name: "Google News — Telegram в РФ", URL: "https://news.google.com/rss/search?q=%D0%A2%D0%B5%D0%BB%D0%B5%D0%B3%D1%80%D0%B0%D0%BC+%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%BA%D0%B0+%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F&hl=ru&gl=RU&ceid=RU:ru"},
-	{Name: "Google News — Яндекс и интернет", URL: "https://news.google.com/rss/search?q=%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81+%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%BA%D0%B0+%D0%BC%D0%B5%D1%81%D1%81%D0%B5%D0%BD%D0%B4%D0%B6%D0%B5%D1%80&hl=ru&gl=RU&ceid=RU:ru"},
-	{Name: "Google News — Минцифры и рунет", URL: "https://news.google.com/rss/search?q=%D0%9C%D0%B8%D0%BD%D1%86%D0%B8%D1%84%D1%80%D1%8B+VPN+%D1%80%D1%83%D0%BD%D0%B5%D1%82&hl=ru&gl=RU&ceid=RU:ru"},
 	{Name: "Роскомсвобода", URL: "https://roskomsvoboda.org/feed/"},
 	{Name: "OpenNet", URL: "https://www.opennet.ru/opennews/opennews_all_utf.rss"},
 	{Name: "Meduza", URL: "https://meduza.io/rss/all"},
@@ -41,14 +36,11 @@ var feedSources = []struct {
 	{Name: "IT-World", URL: "https://www.it-world.ru/rss/"},
 	{Name: "Код Дурова", URL: "https://kod.ru/rss"},
 	{Name: "Kaspersky — блог", URL: "https://www.kaspersky.ru/blog/feed/"},
-	{Name: "Google News — VPN и блокировки (RU)", URL: "https://news.google.com/rss/search?q=VPN+%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%BA%D0%B0+%D0%BE%D0%B1%D1%85%D0%BE%D0%B4+%D0%BF%D1%80%D0%B8%D0%B2%D0%B0%D1%82%D0%BD%D0%BE%D1%81%D1%82%D1%8C&hl=ru&gl=RU&ceid=RU:ru"},
-	{Name: "Google News — рунет и цензура (RU)", URL: "https://news.google.com/rss/search?q=%D1%80%D1%83%D0%BD%D0%B5%D1%82+%D1%86%D0%B5%D0%BD%D0%B7%D1%83%D1%80%D0%B0+%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%BA%D0%B0+%D0%BC%D0%B5%D1%81%D1%81%D0%B5%D0%BD%D0%B4%D0%B6%D0%B5%D1%80&hl=ru&gl=RU&ceid=RU:ru"},
 
 	// ——— Международные ———
 	{Name: "Reddit r/VPN", URL: "https://www.reddit.com/r/VPN/.rss"},
 	{Name: "Reddit r/privacy", URL: "https://www.reddit.com/r/privacy/.rss"},
 	{Name: "Reddit r/technology", URL: "https://www.reddit.com/r/technology/.rss"},
-	{Name: "Google News — VPN censorship (EN)", URL: "https://news.google.com/rss/search?q=VPN+censorship+blocking+bypass&hl=en-US&gl=US&ceid=US:en"},
 }
 
 // Article — нормализованная новость для фильтра и промпта.
