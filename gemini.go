@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"regexp"
@@ -37,6 +38,9 @@ func generateDigest(ctx context.Context, cfg Config, articles []Article) (string
 	body, err := generateDigestBatch(ctx, client, cfg, fullPrompt)
 	if err == nil {
 		return body, nil
+	}
+	if isQuotaExhausted(err) {
+		return "", errQuotaExhausted // последовательный проход упрётся в ту же дневную квоту
 	}
 	log.Printf("Пакетная генерация не удалась (%v), пробуем по одной новости…", err)
 
@@ -162,9 +166,29 @@ func normalizeSingleNewsBlock(body string, number int) string {
 	return singleNewsNumRE.ReplaceAllString(body, fmt.Sprintf("<b>%d. ", number))
 }
 
+// errQuotaExhausted — понятное сообщение вместо простыни от Gemini при исчерпании
+// дневной квоты (её всё равно бесполезно ретраить в пределах запуска).
+var errQuotaExhausted = errors.New(
+	"дневной лимит запросов Gemini исчерпан (бесплатный тариф — 20 запросов в сутки). " +
+		"Сбросится в течение суток; для больших объёмов включите биллинг в Google AI Studio")
+
+// isQuotaExhausted — именно ДНЕВНАЯ квота (не поминутный рейт-лимит): ретраи не помогут.
+func isQuotaExhausted(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := strings.ToLower(err.Error())
+	return strings.Contains(s, "perday") ||
+		strings.Contains(s, "per day") ||
+		strings.Contains(s, "free_tier_requests")
+}
+
 func isGeminiRetryable(err error) bool {
 	if err == nil {
 		return false
+	}
+	if isQuotaExhausted(err) {
+		return false // дневную квоту ретраить бессмысленно — только жжём остаток
 	}
 	s := strings.ToLower(err.Error())
 	return strings.Contains(s, "503") ||
