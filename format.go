@@ -19,10 +19,19 @@ const (
 	requiredNewsItems  = 6
 	foreignNewsItemNum = 6 // пункт 6: зарубежная новость
 	telegramMaxMessage = 4096
+	telegramMaxCaption = 1000 // запас к лимиту подписи Telegram (1024, считается после парсинга сущностей)
 	minNewsTextRunes  = 40
 	maxNewsTextRunes  = 320
 	maxNewsTitleRunes = 85
 )
+
+var htmlTagRE = regexp.MustCompile(`<[^>]+>`)
+
+// captionVisibleLen — длина видимого текста (Telegram считает подпись без разметки:
+// теги <b>/<a>/<tg-emoji> и URL в href не в счёт, остаётся сам текст и эмодзи).
+func captionVisibleLen(html string) int {
+	return len([]rune(strings.TrimSpace(htmlTagRE.ReplaceAllString(html, ""))))
+}
 
 var sanitizePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^\s*<b>\s*«?Пятничный дайджест»?\s*</b>.*\n?`),
@@ -198,4 +207,81 @@ func assembleDigest(newsBody string) string {
 	b.WriteString(tgEmoji(closingEmojiID, closingEmojiFB))
 	b.WriteString("</blockquote>")
 	return b.String()
+}
+
+// assembleDigestForCaption собирает дайджест для подписи к фото и, если он не
+// влезает в лимит Telegram, аккуратно ужимает тексты пунктов. ok=false — не
+// удалось ужать (тогда вызывающий шлёт фото и текст раздельно).
+func assembleDigestForCaption(newsBody string) (string, bool) {
+	body, ok := fitNewsBodyToCaption(newsBody, telegramMaxCaption)
+	if !ok {
+		return "", false
+	}
+	return assembleDigest(body), true
+}
+
+func fitNewsBodyToCaption(newsBody string, maxVisible int) (string, bool) {
+	if captionVisibleLen(assembleDigest(newsBody)) <= maxVisible {
+		return newsBody, true
+	}
+	// Шаг 1: оставить по одному предложению в каждом пункте.
+	one := mapItemBodies(newsBody, firstSentence)
+	if captionVisibleLen(assembleDigest(one)) <= maxVisible {
+		return one, true
+	}
+	// Шаг 2: подрезать тела пунктов до убывающего бюджета символов.
+	for _, budget := range []int{130, 100, 80, 60, 45} {
+		trimmed := mapItemBodies(one, func(s string) string { return trimToRunes(s, budget) })
+		if captionVisibleLen(assembleDigest(trimmed)) <= maxVisible {
+			return trimmed, true
+		}
+	}
+	return "", false
+}
+
+// mapItemBodies применяет fn к тексту каждого пункта, сохраняя строку-заголовок
+// (<b>N. <a…>…</a></b>) без изменений.
+func mapItemBodies(newsBody string, fn func(string) string) string {
+	blocks := splitNewsBlocks(newsBody)
+	if len(blocks) == 0 {
+		return newsBody
+	}
+	out := make([]string, 0, len(blocks))
+	for _, b := range blocks {
+		idx := strings.LastIndex(b, "</b>")
+		if idx < 0 {
+			out = append(out, b)
+			continue
+		}
+		head := b[:idx+len("</b>")]
+		body := strings.TrimSpace(b[idx+len("</b>"):])
+		out = append(out, head+"\n"+strings.TrimSpace(fn(body)))
+	}
+	return strings.Join(out, "\n\n")
+}
+
+// firstSentence возвращает первое предложение (до . ! ? … перед пробелом/концом).
+func firstSentence(s string) string {
+	r := []rune(strings.TrimSpace(s))
+	for i := 0; i < len(r); i++ {
+		switch r[i] {
+		case '.', '!', '?', '…':
+			if i+1 >= len(r) || r[i+1] == ' ' {
+				return strings.TrimSpace(string(r[:i+1]))
+			}
+		}
+	}
+	return strings.TrimSpace(string(r))
+}
+
+func trimToRunes(s string, max int) string {
+	r := []rune(strings.TrimSpace(s))
+	if len(r) <= max {
+		return string(r)
+	}
+	cut := string(r[:max])
+	if sp := strings.LastIndex(cut, " "); sp > max/2 {
+		cut = cut[:sp]
+	}
+	return strings.TrimSpace(cut) + "…"
 }

@@ -5,11 +5,7 @@ import (
 	"log"
 )
 
-func publishPreview(cfg Config, htmlText string) error {
-	if n := len([]rune(htmlText)); n > telegramMaxMessage {
-		return fmt.Errorf("дайджест слишком длинный (%d симв., лимит %d)", n, telegramMaxMessage)
-	}
-
+func publishPreview(cfg Config, newsBody string) error {
 	tc, err := newTelegramController(cfg)
 	if err != nil {
 		return err
@@ -21,9 +17,30 @@ func publishPreview(cfg Config, htmlText string) error {
 	if err := tc.sendHTML(tc.chatID, hint, true); err != nil {
 		return err
 	}
-	if err := tc.sendHTML(tc.chatID, htmlText, false); err != nil {
+
+	// Фото с дайджестом в подписи (одним сообщением, при необходимости текст ужимается).
+	if cfg.PhotoEnabled {
+		if caption, ok := assembleDigestForCaption(newsBody); ok {
+			if err := tc.sendPhotoCaption(tc.chatID, newsPhoto, caption); err != nil {
+				return err
+			}
+			log.Printf("Превью отправлено (подсказка + фото с дайджестом)")
+			return nil
+		}
+		// Не влезло даже после сжатия — фото отдельно, полный текст следом.
+		log.Printf("Дайджест не помещается в подпись, шлю фото + текст раздельно")
+		if err := tc.sendPhotoCaption(tc.chatID, newsPhoto, ""); err != nil {
+			return err
+		}
+	}
+
+	full := assembleDigest(newsBody)
+	if n := len([]rune(full)); n > telegramMaxMessage {
+		return fmt.Errorf("дайджест слишком длинный (%d симв., лимит %d)", n, telegramMaxMessage)
+	}
+	if err := tc.sendHTML(tc.chatID, full, false); err != nil {
 		return err
 	}
-	log.Printf("Превью отправлено (2 сообщения + кнопка обновить)")
+	log.Printf("Превью отправлено")
 	return nil
 }

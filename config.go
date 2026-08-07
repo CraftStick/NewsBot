@@ -40,6 +40,7 @@ type Config struct {
 	GeminiModel           string
 	CronSchedule          string
 	Timezone              *time.Location
+	PhotoEnabled          bool
 }
 
 func loadEnv() {
@@ -72,6 +73,14 @@ func LoadConfig() (Config, error) {
 	}
 	if cfg.CronSchedule == "" {
 		cfg.CronSchedule = defaultCronSchedule
+	}
+
+	// Картинка-шапка включена по умолчанию; выключается MEDIA_TYPE=none/off/text.
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MEDIA_TYPE"))) {
+	case "none", "off", "text", "no":
+		cfg.PhotoEnabled = false
+	default:
+		cfg.PhotoEnabled = true
 	}
 
 	tz := strings.TrimSpace(os.Getenv("TZ"))

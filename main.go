@@ -166,7 +166,7 @@ func runDigest(cfg Config) error {
 	}
 
 	log.Printf("Отправка превью в чат %s…", cfg.TelegramPreviewChatID)
-	if err := publishPreview(cfg, assembleDigest(newsHTML)); err != nil {
+	if err := publishPreview(cfg, newsHTML); err != nil {
 		return err
 	}
 	if err := recordDigestSent(now); err != nil {

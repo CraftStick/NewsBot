@@ -64,6 +64,21 @@ func (tc *telegramController) sendHTML(chatID int64, html string, withRegenerate
 	return nil
 }
 
+// sendPhotoCaption шлёт фото (из байтов) с HTML-подписью. Пустая подпись — просто фото.
+func (tc *telegramController) sendPhotoCaption(chatID int64, photo []byte, htmlCaption string) error {
+	msg := tgbotapi.NewPhoto(chatID, tgbotapi.FileBytes{Name: "news.jpg", Bytes: photo})
+	if htmlCaption != "" {
+		msg.ParseMode = tgbotapi.ModeHTML
+		msg.Caption = htmlCaption
+	}
+	sent, err := tc.bot.Send(msg)
+	if err != nil {
+		return err
+	}
+	log.Printf("photo message_id=%d", sent.MessageID)
+	return nil
+}
+
 func (tc *telegramController) sendPlain(chatID int64, text string) {
 	msg := tgbotapi.NewMessage(chatID, text)
 	if _, err := tc.bot.Send(msg); err != nil {
