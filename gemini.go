@@ -22,6 +22,12 @@ const (
 	// (4 попытки × 5 повторов, затем 6 пунктов × 3 лимита токенов) выжирает
 	// дневную квоту бесплатного тарифа за один-единственный дайджест.
 	geminiRunRequestBudget = 8
+
+	// Лимиты для фото-режима. Подпись Telegram жёстко ограничена, а сжатие в
+	// format.go режет пункты до первого предложения — чтобы вторая фраза дожила
+	// до отправки, пункт должен влезать в лимит сразу (см. TestCaptionBudget).
+	captionHeadingMaxChars = 55
+	captionItemMaxChars    = 135
 )
 
 // requestBudget — общий на прогон счётчик запросов к Gemini.
@@ -72,7 +78,12 @@ func generateDigest(ctx context.Context, cfg Config, articles []Article) (string
 
 	fullPrompt := buildNewsDigestPrompt(articles, 0)
 	if cfg.PhotoEnabled {
-		fullPrompt += "\n\nДайджест пойдёт в подпись к фото (лимит места). Пиши КОМПАКТНО: заголовок и 2 коротких, но ОБЯЗАТЕЛЬНО законченных предложения; каждый пункт целиком примерно до 110 символов."
+		fullPrompt += fmt.Sprintf(
+			"\n\nДайджест пойдёт в подпись к фото — там жёсткий лимит места. Пиши ОЧЕНЬ компактно: "+
+				"заголовок до %d символов, под ним 2 коротких, но ОБЯЗАТЕЛЬНО законченных предложения. "+
+				"Весь пункт целиком (заголовок плюс оба предложения) — не длиннее %d символов. "+
+				"Лучше два предложения по 40 символов, чем одно длинное: длинный пункт будет обрезан.",
+			captionHeadingMaxChars, captionItemMaxChars)
 	}
 	budget := &requestBudget{left: geminiRunRequestBudget}
 

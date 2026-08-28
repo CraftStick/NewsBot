@@ -39,8 +39,6 @@ var feedSources = []struct {
 
 	// ——— Международные ———
 	{Name: "Reddit r/VPN", URL: "https://www.reddit.com/r/VPN/.rss"},
-	{Name: "Reddit r/privacy", URL: "https://www.reddit.com/r/privacy/.rss"},
-	{Name: "Reddit r/technology", URL: "https://www.reddit.com/r/technology/.rss"},
 }
 
 // Article — нормализованная новость для фильтра и промпта.

@@ -76,3 +76,27 @@ func TestFirstSentence(t *testing.T) {
 		}
 	}
 }
+
+// Бюджет символов из фото-промпта обязан влезать в подпись Telegram БЕЗ сжатия:
+// иначе format.go срежет вторые предложения, ради которых лимиты и подбирались.
+func TestCaptionBudget(t *testing.T) {
+	t.Parallel()
+
+	head := strings.Repeat("а", captionHeadingMaxChars-len("N. "))
+	sentence := strings.Repeat("б", (captionItemMaxChars-captionHeadingMaxChars)/2-2)
+	items := make([][2]string, 0, requiredNewsItems)
+	for i := 0; i < requiredNewsItems; i++ {
+		items = append(items, [2]string{head, sentence + ". " + sentence + "."})
+	}
+	body := makeBody(items)
+
+	got := captionVisibleLen(assembleDigest(body))
+	t.Logf("предельный по промпту дайджест: %d символов из %d", got, telegramMaxCaption)
+	if got > telegramMaxCaption {
+		t.Fatalf("не влезает в подпись: %d > %d", got, telegramMaxCaption)
+	}
+	fitted, ok := fitNewsBodyToCaption(body, telegramMaxCaption)
+	if !ok || fitted != body {
+		t.Fatal("сжатие сработало на дайджесте, который обязан проходить как есть")
+	}
+}
