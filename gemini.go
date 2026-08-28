@@ -18,7 +18,46 @@ const (
 	geminiMaxOutputTokens    = 4800
 	geminiSingleOutputTokens = 1200
 	geminiSequentialArticles = 18
+	// Потолок запросов к Gemini на один прогон. Без него каскад ретраев
+	// (4 попытки × 5 повторов, затем 6 пунктов × 3 лимита токенов) выжирает
+	// дневную квоту бесплатного тарифа за один-единственный дайджест.
+	geminiRunRequestBudget = 8
 )
+
+// requestBudget — общий на прогон счётчик запросов к Gemini.
+type requestBudget struct {
+	left int
+}
+
+func (b *requestBudget) take() error {
+	if b.left <= 0 {
+		return errBudgetExhausted
+	}
+	b.left--
+	return nil
+}
+
+var (
+	errBudgetExhausted = fmt.Errorf(
+		"исчерпан бюджет запросов к Gemini на один прогон (%d) — остаток дневной квоты сохранён",
+		geminiRunRequestBudget)
+
+	// errEmptyResponse — модель вернула пустой текст (упёрлась в MaxOutputTokens
+	// или фильтры). Повторять тот же запрос бессмысленно, надо менять параметры.
+	errEmptyResponse = errors.New("пустой ответ от Gemini")
+)
+
+// thinkingConfigFor выключает «мышление» у 2.5-flash: оно включено по умолчанию
+// и тратит те же MaxOutputTokens, из-за чего модель упирается в лимит и отдаёт
+// пустой текст. Для дайджеста рассуждения не нужны. У pro-моделей нулевой
+// бюджет запрещён, поэтому там конфиг не трогаем.
+func thinkingConfigFor(model string) *genai.ThinkingConfig {
+	if !strings.Contains(strings.ToLower(model), "2.5-flash") {
+		return nil
+	}
+	zero := int32(0)
+	return &genai.ThinkingConfig{ThinkingBudget: &zero}
+}
 
 var singleNewsNumRE = regexp.MustCompile(`<b>\s*\d{1,2}\.\s`)
 
@@ -35,19 +74,30 @@ func generateDigest(ctx context.Context, cfg Config, articles []Article) (string
 	if cfg.PhotoEnabled {
 		fullPrompt += "\n\nДайджест пойдёт в подпись к фото (лимит места). Пиши КОМПАКТНО: заголовок и 2 коротких, но ОБЯЗАТЕЛЬНО законченных предложения; каждый пункт целиком примерно до 110 символов."
 	}
-	body, err := generateDigestBatch(ctx, client, cfg, fullPrompt)
+	budget := &requestBudget{left: geminiRunRequestBudget}
+
+	body, err := generateDigestBatch(ctx, client, cfg, fullPrompt, budget)
 	if err == nil {
 		return body, nil
 	}
 	if isQuotaExhausted(err) {
 		return "", errQuotaExhausted // последовательный проход упрётся в ту же дневную квоту
 	}
+	if errors.Is(err, errBudgetExhausted) {
+		return "", err // по одной новости — это ещё до 90 запросов, дневной квоты не хватит
+	}
 	log.Printf("Пакетная генерация не удалась (%v), пробуем по одной новости…", err)
 
-	return generateDigestSequential(ctx, client, cfg, buildNewsDigestPrompt(articles, geminiSequentialArticles))
+	return generateDigestSequential(ctx, client, cfg, buildNewsDigestPrompt(articles, geminiSequentialArticles), budget)
 }
 
-func generateDigestBatch(ctx context.Context, client *genai.Client, cfg Config, userText string) (string, error) {
+func generateDigestBatch(
+	ctx context.Context,
+	client *genai.Client,
+	cfg Config,
+	userText string,
+	budget *requestBudget,
+) (string, error) {
 	var lastErr error
 	for attempt := 1; attempt <= geminiMaxBatchAttempts; attempt++ {
 		prompt := userText
@@ -55,10 +105,10 @@ func generateDigestBatch(ctx context.Context, client *genai.Client, cfg Config, 
 			prompt += "\n\nПредыдущий ответ не подошёл. Верни все 6 пунктов (1–5 Россия, 6 — зарубеж). Заголовки до 10 слов. В каждом — 2 коротких предложения."
 		}
 
-		body, reason, err := callGemini(ctx, client, cfg, systemPrompt, prompt, attempt, geminiMaxOutputTokens)
+		body, reason, err := callGemini(ctx, client, cfg, systemPrompt, prompt, attempt, geminiMaxOutputTokens, budget)
 		if err != nil {
 			lastErr = err
-			if isGeminiRetryable(err) {
+			if errors.Is(err, errEmptyResponse) || isGeminiRetryable(err) {
 				log.Printf("Gemini пакет, попытка %d: %v", attempt, err)
 				continue
 			}
@@ -79,12 +129,18 @@ func generateDigestBatch(ctx context.Context, client *genai.Client, cfg Config, 
 	return "", lastErr
 }
 
-func generateDigestSequential(ctx context.Context, client *genai.Client, cfg Config, feed string) (string, error) {
+func generateDigestSequential(
+	ctx context.Context,
+	client *genai.Client,
+	cfg Config,
+	feed string,
+	budget *requestBudget,
+) (string, error) {
 	var parts []string
 	var usedTitles []string
 
 	for n := 1; n <= requiredNewsItems; n++ {
-		body, err := generateSingleNewsItem(ctx, client, cfg, feed, n, usedTitles)
+		body, err := generateSingleNewsItem(ctx, client, cfg, feed, n, usedTitles, budget)
 		if err != nil {
 			return "", err
 		}
@@ -104,6 +160,7 @@ func generateSingleNewsItem(
 	feed string,
 	number int,
 	used []string,
+	budget *requestBudget,
 ) (string, error) {
 	prompt := buildSingleNewsPrompt(feed, number, used)
 	tokens := []int32{geminiSingleOutputTokens, 1800, 2400}
@@ -114,9 +171,9 @@ func generateSingleNewsItem(
 		if i > 0 {
 			extra = "\n\nОтветь только одним пунктом: <b>N. Заголовок</b> и 2 коротких предложения."
 		}
-		body, reason, err := callGemini(ctx, client, cfg, systemPromptSingle, prompt+extra, i+1, maxOut)
+		body, reason, err := callGemini(ctx, client, cfg, systemPromptSingle, prompt+extra, i+1, maxOut, budget)
 		if err != nil {
-			if isGeminiRetryable(err) {
+			if errors.Is(err, errEmptyResponse) || isGeminiRetryable(err) {
 				lastErr = err
 				continue
 			}
@@ -190,6 +247,9 @@ func isGeminiRetryable(err error) bool {
 	if isQuotaExhausted(err) {
 		return false // дневную квоту ретраить бессмысленно — только жжём остаток
 	}
+	if errors.Is(err, errBudgetExhausted) || errors.Is(err, errEmptyResponse) {
+		return false
+	}
 	s := strings.ToLower(err.Error())
 	return strings.Contains(s, "503") ||
 		strings.Contains(s, "429") ||
@@ -206,6 +266,7 @@ func callGemini(
 	systemPrompt, userText string,
 	attempt int,
 	maxOut int32,
+	budget *requestBudget,
 ) (string, genai.FinishReason, error) {
 	temp := float32(0.45)
 	if attempt > 1 {
@@ -221,12 +282,19 @@ func callGemini(
 		},
 		Temperature:     &temp,
 		MaxOutputTokens: maxOut,
+		ThinkingConfig:  thinkingConfigFor(cfg.GeminiModel),
 	}
 
 	var lastErr error
 	for try := 1; try <= geminiMaxAPIRetries; try++ {
 		if ctx.Err() != nil {
 			return "", "", ctx.Err()
+		}
+		if err := budget.take(); err != nil {
+			if lastErr != nil {
+				return "", "", fmt.Errorf("%w (последняя ошибка: %v)", err, lastErr)
+			}
+			return "", "", err
 		}
 
 		result, err := client.Models.GenerateContent(ctx, cfg.GeminiModel, contents, config)
@@ -251,12 +319,10 @@ func callGemini(
 			reason = result.Candidates[0].FinishReason
 		}
 		if text == "" {
-			lastErr = fmt.Errorf("пустой ответ от Gemini (finish=%s)", reason)
-			if try < geminiMaxAPIRetries {
-				time.Sleep(time.Duration(try) * time.Second)
-				continue
-			}
-			return "", reason, lastErr
+			// Повтор того же запроса ничего не изменит: пустой текст — это
+			// упёршийся в MaxOutputTokens или фильтры вызов, а не сбой сети.
+			// Меняют параметры выше по стеку, здесь просто не жжём квоту.
+			return "", reason, fmt.Errorf("%w (finish=%s)", errEmptyResponse, reason)
 		}
 		if reason == genai.FinishReasonMaxTokens {
 			log.Printf("Gemini: ответ обрезан (MAX_TOKENS, лимит %d)", maxOut)

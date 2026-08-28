@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -26,5 +27,45 @@ func TestQuotaDetection(t *testing.T) {
 	}
 	if !isGeminiRetryable(perMinute) {
 		t.Fatal("поминутный 429 должен ретраиться")
+	}
+}
+
+func TestRequestBudget(t *testing.T) {
+	t.Parallel()
+
+	b := &requestBudget{left: 2}
+	if err := b.take(); err != nil {
+		t.Fatalf("первый запрос отклонён: %v", err)
+	}
+	if err := b.take(); err != nil {
+		t.Fatalf("второй запрос отклонён: %v", err)
+	}
+	err := b.take()
+	if !errors.Is(err, errBudgetExhausted) {
+		t.Fatalf("ожидали исчерпание бюджета, получили %v", err)
+	}
+	if isGeminiRetryable(err) {
+		t.Fatal("исчерпанный бюджет нельзя ретраить — иначе он бессмыслен")
+	}
+}
+
+func TestEmptyResponseNotRetryable(t *testing.T) {
+	t.Parallel()
+
+	err := fmt.Errorf("%w (finish=MAX_TOKENS)", errEmptyResponse)
+	if isGeminiRetryable(err) {
+		t.Fatal("пустой ответ не транзиентный: повтор того же запроса жжёт квоту")
+	}
+}
+
+func TestThinkingDisabledForFlash(t *testing.T) {
+	t.Parallel()
+
+	cfg := thinkingConfigFor("gemini-2.5-flash")
+	if cfg == nil || cfg.ThinkingBudget == nil || *cfg.ThinkingBudget != 0 {
+		t.Fatalf("для 2.5-flash мышление должно быть выключено, получили %+v", cfg)
+	}
+	if thinkingConfigFor("gemini-2.5-pro") != nil {
+		t.Fatal("у pro нулевой бюджет запрещён — конфиг трогать нельзя")
 	}
 }
