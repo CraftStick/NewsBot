@@ -13,12 +13,13 @@ Built for the Tree Shield VPN channel; fork and adapt it for your own project.
 
 ## Features
 
-- ~20 RSS feeds (Habr, VC, Meduza, Google News, Reddit, etc.) with keyword filtering
+- 17 RSS feeds (Roskomsvoboda, Habr, Meduza, VC, SecurityLab, CNews, etc.) with keyword filtering
 - Priority for Russia-related news (RKN, VPN, Telegram, State Duma…)
 - 6 digest items: 5 focused on Russia + 1 international story
 - Clickable headlines linked to sources
 - Post template (header, emoji, closing) in code, not in the LLM prompt
 - Retries on Gemini overload (503) and fallback one-item-at-a-time generation
+- Per-run request budget, so retries cannot burn the free tier's daily quota
 - Cron scheduler, one-shot run, and delayed test (`-in 1m`)
 
 ---
