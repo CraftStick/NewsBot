@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -157,6 +158,26 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 	}
 }
 
+// errPollingTaken — опрос уже ведёт другой процесс (обычно systemd-сервис).
+// Telegram отдаёт getUpdates только одному клиенту, второй получает Conflict.
+var errPollingTaken = errors.New("опрос обновлений уже ведёт другой экземпляр бота")
+
+// pollingAvailable проверяет, свободен ли getUpdates, ОДНИМ коротким запросом.
+// Без этого второй процесс уходит в бесконечную драку с первым и раз в три
+// секунды сыплет в лог «Conflict: terminated by other getUpdates request».
+func (tc *telegramController) pollingAvailable() error {
+	u := tgbotapi.NewUpdate(-1)
+	u.Timeout = 0
+	u.Limit = 1
+	if _, err := tc.bot.GetUpdates(u); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "conflict") {
+			return errPollingTaken
+		}
+		return err
+	}
+	return nil
+}
+
 func runTelegramBot(ctx context.Context, cfg Config) error {
 	tc, err := newTelegramController(cfg)
 	if err != nil {
@@ -192,5 +213,20 @@ func runTelegramBotUntilSignal(cfg Config) {
 		cancel()
 	}()
 
-	_ = runTelegramBot(ctx, cfg)
+	// Разовый прогон уступает опрос долгоживущему сервису: иначе два процесса
+	// бесконечно выбивают друг друга из getUpdates и засыпают лог Conflict-ами.
+	tc, err := newTelegramController(cfg)
+	if err != nil {
+		log.Printf("telegram bot: %v", err)
+		return
+	}
+	if err := tc.pollingAvailable(); errors.Is(err, errPollingTaken) {
+		log.Println("Кнопку «Другой дайджест» обслуживает запущенный сервис — второй опрос не нужен. " +
+			"Дайджест отправлен, выхожу.")
+		return
+	}
+
+	if err := runTelegramBot(ctx, cfg); err != nil {
+		log.Printf("telegram bot: %v", err)
+	}
 }
