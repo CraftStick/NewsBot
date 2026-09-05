@@ -17,6 +17,7 @@ Built for the Tree Shield VPN channel; fork and adapt it for your own project.
 - Priority for Russia-related news (RKN, VPN, Telegram, State Duma…)
 - 6 digest items: 5 focused on Russia + 1 international story
 - Clickable headlines linked to sources
+- One-month topic memory: a story from a past digest will not come back
 - Post template (header, emoji, closing) in code, not in the LLM prompt
 - Retries on Gemini overload (503) and fallback one-item-at-a-time generation
 - Per-run request budget, so retries cannot burn the free tier's daily quota

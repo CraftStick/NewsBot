@@ -4,3 +4,5 @@ treesheild-newsbot
 preview_digest.html
 .last_digest
 .last_digest.tmp
+.digest_history
+.digest_history.tmp

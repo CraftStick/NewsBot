@@ -67,7 +67,7 @@ func thinkingConfigFor(model string) *genai.ThinkingConfig {
 
 var singleNewsNumRE = regexp.MustCompile(`<b>\s*\d{1,2}\.\s`)
 
-func generateDigest(ctx context.Context, cfg Config, articles []Article) (string, error) {
+func generateDigest(ctx context.Context, cfg Config, articles []Article, published []string) (string, error) {
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey:  cfg.GeminiAPIKey,
 		Backend: genai.BackendGeminiAPI,
@@ -77,6 +77,10 @@ func generateDigest(ctx context.Context, cfg Config, articles []Article) (string
 	}
 
 	fullPrompt := buildNewsDigestPrompt(articles, 0)
+	if len(published) > 0 {
+		fullPrompt += "\n\nЭти темы уже были в прошлых выпусках — НЕ бери их снова, даже если в ленте есть свежие строки про то же событие:\n- " +
+			strings.Join(published, "\n- ")
+	}
 	if cfg.PhotoEnabled {
 		fullPrompt += fmt.Sprintf(
 			"\n\nДайджест пойдёт в подпись к фото — там жёсткий лимит места. Пиши ОЧЕНЬ компактно: "+
@@ -99,7 +103,7 @@ func generateDigest(ctx context.Context, cfg Config, articles []Article) (string
 	}
 	log.Printf("Пакетная генерация не удалась (%v), пробуем по одной новости…", err)
 
-	return generateDigestSequential(ctx, client, cfg, buildNewsDigestPrompt(articles, geminiSequentialArticles), budget)
+	return generateDigestSequential(ctx, client, cfg, buildNewsDigestPrompt(articles, geminiSequentialArticles), published, budget)
 }
 
 func generateDigestBatch(
@@ -145,10 +149,13 @@ func generateDigestSequential(
 	client *genai.Client,
 	cfg Config,
 	feed string,
+	published []string,
 	budget *requestBudget,
 ) (string, error) {
 	var parts []string
-	var usedTitles []string
+	// Темы прошлых выпусков идут в тот же список «не повторяй», что и уже
+	// выбранные в этом прогоне.
+	usedTitles := append([]string(nil), published...)
 
 	for n := 1; n <= requiredNewsItems; n++ {
 		body, err := generateSingleNewsItem(ctx, client, cfg, feed, n, usedTitles, budget)

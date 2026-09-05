@@ -152,10 +152,16 @@ func runDigest(cfg Config) error {
 		log.Printf("Диапазон дат в ленте: %s — %s", oldest.Format("02.01.2006"), newest.Format("02.01.2006"))
 	}
 
+	history := readDigestHistory(now)
+	if fresh := dropPublished(articles, history); len(fresh) < len(articles) {
+		log.Printf("Уже публиковали: отброшено статей %d, осталось %d", len(articles)-len(fresh), len(fresh))
+		articles = fresh
+	}
+
 	pool := articlesForPrompt(articles)
 	log.Printf("Запрос к Gemini (~%d симв., %d статей)…", len(buildNewsDigestPrompt(articles, 0)), len(pool))
 
-	newsHTML, err := generateDigest(ctx, cfg, articles)
+	newsHTML, err := generateDigest(ctx, cfg, articles, historyTitles(history))
 	if err != nil {
 		return err
 	}
@@ -171,6 +177,9 @@ func runDigest(cfg Config) error {
 	}
 	if err := recordDigestSent(now); err != nil {
 		log.Printf("не удалось записать отметку отправки: %v", err)
+	}
+	if err := recordDigestHistory(newsHTML, now); err != nil {
+		log.Printf("не удалось запомнить темы дайджеста: %v", err)
 	}
 	return nil
 }

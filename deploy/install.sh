@@ -24,7 +24,9 @@ mkdir -p "$INSTALL_DIR"
 cd "$ROOT_DIR"
 CGO_ENABLED=0 go build -ldflags "-s -w" -o "$INSTALL_DIR/$APP_NAME" .
 
+FIRST_INSTALL=0
 if [[ ! -f "$INSTALL_DIR/.env" ]]; then
+  FIRST_INSTALL=1
   cp .env.example "$INSTALL_DIR/.env"
   chmod 600 "$INSTALL_DIR/.env"
   echo "Создан $INSTALL_DIR/.env — отредактируйте перед стартом."
@@ -38,8 +40,23 @@ systemctl daemon-reload
 systemctl enable "$SERVICE_NAME"
 
 echo ""
-echo "Готово. Дальше:"
-echo "  nano $INSTALL_DIR/.env"
-echo "  sudo -u newsbot $INSTALL_DIR/$APP_NAME -preview"
-echo "  systemctl start $SERVICE_NAME    # планировщик по CRON_SCHEDULE"
+if [[ "$FIRST_INSTALL" -eq 1 ]]; then
+  echo "Готово, но сервис НЕ запущен — сначала заполните .env:"
+  echo "  nano $INSTALL_DIR/.env"
+  echo "  sudo -u newsbot $INSTALL_DIR/$APP_NAME -preview"
+  echo "  systemctl start $SERVICE_NAME    # планировщик по CRON_SCHEDULE"
+  echo "  journalctl -u $SERVICE_NAME -f"
+  exit 0
+fi
+
+# Обновление: поднимаем сервис сами. Иначе деплой молча оставляет его лежать,
+# и пропуск замечаешь только по несостоявшемуся пятничному дайджесту.
+systemctl restart "$SERVICE_NAME"
+sleep 2
+if systemctl is-active --quiet "$SERVICE_NAME"; then
+  echo "Готово. Сервис перезапущен и работает."
+else
+  echo "ВНИМАНИЕ: сервис не поднялся. Смотрите: journalctl -u $SERVICE_NAME -n 50"
+  exit 1
+fi
 echo "  journalctl -u $SERVICE_NAME -f"
