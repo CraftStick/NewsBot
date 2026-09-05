@@ -26,8 +26,8 @@ const (
 	// Лимиты для фото-режима. Подпись Telegram жёстко ограничена, а сжатие в
 	// format.go режет пункты до первого предложения — чтобы вторая фраза дожила
 	// до отправки, пункт должен влезать в лимит сразу (см. TestCaptionBudget).
-	captionHeadingMaxChars = 55
-	captionItemMaxChars    = 135
+	captionHeadingMaxChars = 50
+	captionItemMaxChars    = 138
 )
 
 // requestBudget — общий на прогон счётчик запросов к Gemini.
@@ -78,7 +78,8 @@ func generateDigest(ctx context.Context, cfg Config, articles []Article, publish
 
 	fullPrompt := buildNewsDigestPrompt(articles, 0)
 	if len(published) > 0 {
-		fullPrompt += "\n\nЭти темы уже были в прошлых выпусках — НЕ бери их снова, даже если в ленте есть свежие строки про то же событие:\n- " +
+		fullPrompt += "\n\nСТОП-ЛИСТ. Эти темы уже выходили в прошлых выпусках. Не бери их снова ни в каком виде: " +
+			"ни то же событие под другой формулировкой, ни его продолжение или уточнение. Нужны другие сюжеты:\n- " +
 			strings.Join(published, "\n- ")
 	}
 	if cfg.PhotoEnabled {
@@ -86,7 +87,8 @@ func generateDigest(ctx context.Context, cfg Config, articles []Article, publish
 			"\n\nДайджест пойдёт в подпись к фото — там жёсткий лимит места. Пиши ОЧЕНЬ компактно: "+
 				"заголовок до %d символов, под ним 2 коротких, но ОБЯЗАТЕЛЬНО законченных предложения. "+
 				"Весь пункт целиком (заголовок плюс оба предложения) — не длиннее %d символов. "+
-				"Лучше два предложения по 40 символов, чем одно длинное: длинный пункт будет обрезан.",
+				"Оба предложения обязательны, и второе должно нести НОВЫЙ факт, а не пересказ заголовка: "+
+				"лучше две плотных фразы по 40 символов, чем одна пустая.",
 			captionHeadingMaxChars, captionItemMaxChars)
 	}
 	budget := &requestBudget{left: geminiRunRequestBudget}

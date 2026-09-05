@@ -49,19 +49,27 @@ type Article struct {
 	Summary     string
 	PublishedAt time.Time
 	RUPriority  int // выше = приоритетнее для дайджеста про РФ
+	Relevance   int // relevanceTopic / relevanceEntity
 }
 
-// titleKeywords — фильтр по заголовку (регистронезависимо, подстрока).
-var titleKeywords = []string{
-	"vpn", "блокировк", "обход", "приватность", "рунет",
-	"цензур", "запрет", "разблок", "мессенджер", "шифрован",
-	"взлом", "кибер", "утечк", "тспу", "роском", "ркн",
-	"госдум", "минцифр", "законопроект", "регулятор",
-	"telegram", "телеграм", "whatsapp", "яндекс", "сбер",
-	"censorship", "privacy", "firewall", "dpi", "proxy", "интернет",
-	// Человеческие темы: живее читаются, но остаются в теме приватности/техно.
-	"дуров", "штраф", "мошенн", "слежк", "замедл", "ютуб", "youtube",
-	"госуслуг", "биометри", "санкц", "хакер", "приложени", "вконтакте",
+// topicKeywords — суть дайджеста: доступ, приватность, безопасность,
+// регулирование. Одного такого слова достаточно, чтобы статья была по теме.
+var topicKeywords = []string{
+	"vpn", "блокировк", "заблокир", "разблок", "обход", "запрет", "запрещ",
+	"приватность", "рунет", "цензур", "шифрован", "тспу", "dpi", "proxy",
+	"взлом", "кибер", "утечк", "хакер", "слежк", "замедл", "сбой", "ограничен",
+	"роском", "ркн", "госдум", "минцифр", "законопроект", "закон", "регулятор",
+	"штраф", "мошенн", "биометри", "санкц", "суверен", "персональн",
+	"censorship", "privacy", "firewall", "surveillance", "leak", "breach",
+}
+
+// entityKeywords — игроки рынка. Сами по себе НЕ делают новость нашей: «Яндекс
+// выпустил колонку» или «МТС улучшила сеть» — это пресс-релиз, а не дайджест
+// про приватность. Такие статьи берём только если тематических не хватило.
+var entityKeywords = []string{
+	"telegram", "телеграм", "whatsapp", "яндекс", "сбер", "вконтакте",
+	"дуров", "ютуб", "youtube", "госуслуг", "мессенджер", "интернет",
+	"apple", "google", "оператор связи",
 }
 
 // ruBoostKeywords — повышают приоритет статей про Россию в ленте для Gemini.
@@ -144,7 +152,8 @@ func fetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, error) 
 			if textImpliesOlderThan(title, summary, since) {
 				continue
 			}
-			if !titleMatchesKeywords(title) {
+			relevance := articleRelevance(title, summary)
+			if relevance == relevanceNone {
 				continue
 			}
 
@@ -166,6 +175,7 @@ func fetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, error) 
 				Summary:     summary,
 				PublishedAt: pub,
 				RUPriority:  ruNewsPriority(title, summary),
+				Relevance:   relevance,
 			})
 		}
 	}
@@ -188,9 +198,14 @@ func ruNewsPriority(title, summary string) int {
 	return score
 }
 
-// sortArticlesForPrompt — сначала новости про РФ, внутри группы по дате.
+// sortArticlesForPrompt — сначала по теме, затем про РФ, внутри группы по дате.
+// Порядок важен: в промпт уходят первые maxArticlesInPrompt статей, поэтому
+// пресс-релизы должны оставаться в хвосте и вытесняться, а не наоборот.
 func sortArticlesForPrompt(articles []Article) {
 	sort.Slice(articles, func(i, j int) bool {
+		if articles[i].Relevance != articles[j].Relevance {
+			return articles[i].Relevance > articles[j].Relevance
+		}
 		if articles[i].RUPriority != articles[j].RUPriority {
 			return articles[i].RUPriority > articles[j].RUPriority
 		}
@@ -198,14 +213,29 @@ func sortArticlesForPrompt(articles []Article) {
 	})
 }
 
-func titleMatchesKeywords(title string) bool {
-	lower := strings.ToLower(title)
-	for _, kw := range titleKeywords {
-		if strings.Contains(lower, strings.ToLower(kw)) {
-			return true
+// Уровни релевантности статьи для дайджеста.
+const (
+	relevanceNone   = 0 // мимо темы
+	relevanceEntity = 1 // упомянут игрок, но сути нет — запасной эшелон
+	relevanceTopic  = 2 // блокировки, приватность, ИБ, регулирование
+)
+
+// articleRelevance различает новость по теме и корпоративный пресс-релиз, где
+// просто мелькает знакомый бренд. Раньше фильтр был плоским ИЛИ по общей куче
+// слов, и «МТС улучшила мобильный интернет» проходило наравне с блокировками.
+func articleRelevance(title, summary string) int {
+	text := strings.ToLower(title + " " + summary)
+	for _, kw := range topicKeywords {
+		if strings.Contains(text, kw) {
+			return relevanceTopic
 		}
 	}
-	return false
+	for _, kw := range entityKeywords {
+		if strings.Contains(text, kw) {
+			return relevanceEntity
+		}
+	}
+	return relevanceNone
 }
 
 func dedupeKey(title, link string) string {
