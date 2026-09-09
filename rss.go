@@ -52,15 +52,30 @@ type Article struct {
 	Relevance   int // relevanceTopic / relevanceEntity
 }
 
-// topicKeywords — суть дайджеста: доступ, приватность, безопасность,
-// регулирование. Одного такого слова достаточно, чтобы статья была по теме.
+// topicKeywords — однозначная суть дайджеста: доступ, приватность,
+// безопасность, регулирование связи. Одного такого слова достаточно.
 var topicKeywords = []string{
-	"vpn", "блокировк", "заблокир", "разблок", "обход", "запрет", "запрещ",
+	"vpn", "блокировк", "заблокир", "разблок", "обход", "запрещ",
 	"приватность", "рунет", "цензур", "шифрован", "тспу", "dpi", "proxy",
-	"взлом", "кибер", "утечк", "хакер", "слежк", "замедл", "сбой", "ограничен",
-	"роском", "ркн", "госдум", "минцифр", "законопроект", "закон", "регулятор",
-	"штраф", "мошенн", "биометри", "санкц", "суверен", "персональн",
+	"взлом", "кибер", "утечк", "хакер", "слежк", "замедл",
+	"роском", "ркн", "госдум", "минцифр", "законопроект", "регулятор",
+	"биометри", "суверен", "персональн",
 	"censorship", "privacy", "firewall", "surveillance", "leak", "breach",
+}
+
+// weakTopicKeywords сами по себе не значат ничего: «штраф», «мошенники», «суд»,
+// «запрет» есть в любой криминальной или судебной сводке — так в дайджест
+// попал оправдательный приговор основателю iSpring. Считаем темой только рядом
+// с цифровым контекстом из digitalContextKeywords.
+var weakTopicKeywords = []string{
+	"штраф", "мошенн", "закон", "суд", "иск", "сбой", "ограничен", "санкц", "запрет",
+}
+
+var digitalContextKeywords = []string{
+	"интернет", "онлайн", "сайт", "приложени", "мессенджер", "связ",
+	"оператор", "сеть", "сети", "данн", "аккаунт", "сервис", "платформ",
+	"трафик", "домен", "хостинг", "провайдер", "цифров", "соцсет",
+	"telegram", "телеграм", "vpn", "youtube", "ютуб",
 }
 
 // entityKeywords — игроки рынка. Сами по себе НЕ делают новость нашей: «Яндекс
@@ -225,17 +240,25 @@ const (
 // слов, и «МТС улучшила мобильный интернет» проходило наравне с блокировками.
 func articleRelevance(title, summary string) int {
 	text := strings.ToLower(title + " " + summary)
-	for _, kw := range topicKeywords {
-		if strings.Contains(text, kw) {
-			return relevanceTopic
-		}
+	if containsAny(text, topicKeywords) {
+		return relevanceTopic
 	}
-	for _, kw := range entityKeywords {
-		if strings.Contains(text, kw) {
-			return relevanceEntity
-		}
+	if containsAny(text, weakTopicKeywords) && containsAny(text, digitalContextKeywords) {
+		return relevanceTopic
+	}
+	if containsAny(text, entityKeywords) {
+		return relevanceEntity
 	}
 	return relevanceNone
+}
+
+func containsAny(text string, keywords []string) bool {
+	for _, kw := range keywords {
+		if strings.Contains(text, kw) {
+			return true
+		}
+	}
+	return false
 }
 
 func dedupeKey(title, link string) string {
