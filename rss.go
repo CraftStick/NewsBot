@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/mmcdole/gofeed"
 )
@@ -69,6 +71,16 @@ var topicKeywords = []string{
 // с цифровым контекстом из digitalContextKeywords.
 var weakTopicKeywords = []string{
 	"штраф", "мошенн", "закон", "суд", "иск", "сбой", "ограничен", "санкц", "запрет",
+}
+
+// excludeKeywords — чего в дайджесте быть не должно, даже когда рядом оказалось
+// «судебное» и «цифровое» слово: так претензия Valve к скинченджеру для CS2
+// прошла как «суд» + «сервис». Проверяются ПОСЛЕ topicKeywords, чтобы
+// «Роскомнадзор заблокировал Steam» осталось новостью.
+var excludeKeywords = []string{
+	"игр", "геймер", "киберспорт", "читер", "скинченджер",
+	"cs2", "cs:go", "dota", "steam", "valve",
+	"товарный знак", "претензи", "досудебн", "обзор", "распродаж", "скидк",
 }
 
 var digitalContextKeywords = []string{
@@ -243,6 +255,9 @@ func articleRelevance(title, summary string) int {
 	if containsAny(text, topicKeywords) {
 		return relevanceTopic
 	}
+	if containsAny(text, excludeKeywords) {
+		return relevanceNone
+	}
 	if containsAny(text, weakTopicKeywords) && containsAny(text, digitalContextKeywords) {
 		return relevanceTopic
 	}
@@ -254,9 +269,31 @@ func articleRelevance(title, summary string) int {
 
 func containsAny(text string, keywords []string) bool {
 	for _, kw := range keywords {
-		if strings.Contains(text, kw) {
+		if matchesKeyword(text, kw) {
 			return true
 		}
+	}
+	return false
+}
+
+// matchesKeyword ищет ключевое слово с начала слова. Подстрока без этой
+// проверки давала мусор: «иск» находился внутри «поиска», «рисков» и «диска»,
+// так что статья про риски рынка попадала в дайджест про приватность.
+func matchesKeyword(text, kw string) bool {
+	for from := 0; from <= len(text)-len(kw); {
+		i := strings.Index(text[from:], kw)
+		if i < 0 {
+			return false
+		}
+		abs := from + i
+		if abs == 0 {
+			return true
+		}
+		r, _ := utf8.DecodeLastRuneInString(text[:abs])
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
+			return true
+		}
+		from = abs + len(kw)
 	}
 	return false
 }
