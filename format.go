@@ -185,7 +185,37 @@ func sanitizeNewsBody(body string) string {
 	for _, re := range sanitizePatterns {
 		body = strings.TrimSpace(re.ReplaceAllString(body, ""))
 	}
-	return stripPreamble(body)
+	return stripPreamble(normalizeNewsHeadings(body))
+}
+
+var (
+	strongOpenRE  = regexp.MustCompile(`(?i)<strong>`)
+	strongCloseRE = regexp.MustCompile(`(?i)</strong>`)
+	markdownBold  = regexp.MustCompile(`\*\*([^*\n]+?)\*\*`)
+	// <b>1.</b> Заголовок — такой пример стоит в самом системном промпте.
+	numberOnlyBold = regexp.MustCompile(`(?m)^\s*<b>\s*(\d{1,2})\.\s*</b>\s*(.+?)\s*$`)
+	// 1. <b>Заголовок</b>
+	numberBeforeBold = regexp.MustCompile(`(?m)^\s*(\d{1,2})\.\s*<b>\s*(.+?)\s*</b>`)
+	// 1. Заголовок — вовсе без разметки; применяется, только если иначе пусто.
+	bareNumbered = regexp.MustCompile(`(?m)^\s*(\d{1,2})[.)]\s+(.+?)\s*$`)
+)
+
+// normalizeNewsHeadings приводит заголовки пунктов к виду <b>N. Заголовок</b>.
+// Парсер знает только его, и любое отклонение модели от формата давало
+// «пунктов 0 из 6» на каждой попытке — дайджест не собирался вовсе.
+func normalizeNewsHeadings(body string) string {
+	if countNewsItems(body) >= requiredNewsItems {
+		return body
+	}
+	body = strongOpenRE.ReplaceAllString(body, "<b>")
+	body = strongCloseRE.ReplaceAllString(body, "</b>")
+	body = markdownBold.ReplaceAllString(body, "<b>$1</b>")
+	body = numberOnlyBold.ReplaceAllString(body, "<b>$1. $2</b>")
+	body = numberBeforeBold.ReplaceAllString(body, "<b>$1. $2</b>")
+	if countNewsItems(body) == 0 {
+		body = bareNumbered.ReplaceAllString(body, "<b>$1. $2</b>")
+	}
+	return body
 }
 
 func injectNewsBullets(body string) string {

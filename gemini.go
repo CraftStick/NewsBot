@@ -98,24 +98,9 @@ func generateDigest(ctx context.Context, cfg Config, articles []Article, publish
 		return "", fmt.Errorf("gemini client: %w", err)
 	}
 
-	fullPrompt := buildNewsDigestPrompt(articles, 0)
-	if len(published) > 0 {
-		fullPrompt += "\n\nСТОП-ЛИСТ. Эти темы уже выходили в прошлых выпусках. Не бери их снова ни в каком виде: " +
-			"ни то же событие под другой формулировкой, ни его продолжение или уточнение. Нужны другие сюжеты:\n- " +
-			strings.Join(published, "\n- ")
-	}
-	if cfg.PhotoEnabled {
-		fullPrompt += fmt.Sprintf(
-			"\n\nДайджест пойдёт в подпись к фото — там жёсткий лимит места. Пиши ОЧЕНЬ компактно: "+
-				"заголовок до %d символов, под ним 2 коротких, но ОБЯЗАТЕЛЬНО законченных предложения. "+
-				"Весь пункт целиком (заголовок плюс оба предложения) — не длиннее %d символов. "+
-				"Оба предложения обязательны, и второе должно нести НОВЫЙ факт, а не пересказ заголовка: "+
-				"лучше две плотных фразы по 40 символов, чем одна пустая.",
-			captionHeadingMaxChars, captionItemMaxChars)
-	}
 	budget := &requestBudget{left: geminiRunRequestBudget, minGap: geminiMinRequestGap}
 
-	body, err := generateDigestBatch(ctx, client, cfg, fullPrompt, budget)
+	body, err := generateDigestBatch(ctx, client, cfg, buildDigestUserPrompt(cfg, articles, published), budget)
 	if err == nil {
 		return body, nil
 	}
@@ -128,6 +113,37 @@ func generateDigest(ctx context.Context, cfg Config, articles []Article, publish
 	log.Printf("Пакетная генерация не удалась (%v), пробуем по одной новости…", err)
 
 	return generateDigestSequential(ctx, client, cfg, buildNewsDigestPrompt(articles, geminiSequentialArticles), published, budget)
+}
+
+// responseSnippet — начало ответа модели для лога отбракованных попыток.
+func responseSnippet(s string) string {
+	const max = 400
+	r := []rune(strings.TrimSpace(s))
+	if len(r) <= max {
+		return string(r)
+	}
+	return string(r[:max]) + "…"
+}
+
+// buildDigestUserPrompt — пользовательская часть запроса пакетного режима:
+// лента, стоп-лист прошлых тем и ограничения фото-подписи.
+func buildDigestUserPrompt(cfg Config, articles []Article, published []string) string {
+	prompt := buildNewsDigestPrompt(articles, 0)
+	if len(published) > 0 {
+		prompt += "\n\nСТОП-ЛИСТ. Эти темы уже выходили в прошлых выпусках. Не бери их снова ни в каком виде: " +
+			"ни то же событие под другой формулировкой, ни его продолжение или уточнение. Нужны другие сюжеты:\n- " +
+			strings.Join(published, "\n- ")
+	}
+	if cfg.PhotoEnabled {
+		prompt += fmt.Sprintf(
+			"\n\nДайджест пойдёт в подпись к фото — там жёсткий лимит места. Пиши ОЧЕНЬ компактно: "+
+				"заголовок до %d символов, под ним 2 коротких, но ОБЯЗАТЕЛЬНО законченных предложения. "+
+				"Весь пункт целиком (заголовок плюс оба предложения) — не длиннее %d символов. "+
+				"Оба предложения обязательны, и второе должно нести НОВЫЙ факт, а не пересказ заголовка: "+
+				"лучше две плотных фразы по 40 символов, чем одна пустая.",
+			captionHeadingMaxChars, captionItemMaxChars)
+	}
+	return prompt
 }
 
 func generateDigestBatch(
@@ -154,10 +170,13 @@ func generateDigestBatch(
 			return "", err
 		}
 
+		raw := body
 		body = sanitizeNewsBody(body)
 		if err := validateNewsBody(body); err != nil {
 			lastErr = fmt.Errorf("%v (finish=%s)", err, reason)
-			log.Printf("Gemini пакет, попытка %d: %v", attempt, lastErr)
+			// Без начала ответа «пунктов 0 из 6» не отличить от отказа модели
+			// или чужого формата — приходилось гадать по коду.
+			log.Printf("Gemini пакет, попытка %d: %v; начало ответа: %q", attempt, lastErr, responseSnippet(raw))
 			continue
 		}
 		if attempt > 1 {
@@ -221,10 +240,11 @@ func generateSingleNewsItem(
 			}
 			return "", err
 		}
+		raw := body
 		body = sanitizeNewsBody(normalizeSingleNewsBlock(body, number))
 		if err := validateSingleNewsBlock(body); err != nil {
 			lastErr = fmt.Errorf("%w (finish=%s)", err, reason)
-			log.Printf("Gemini пункт %d (попытка %d): %v", number, i+1, lastErr)
+			log.Printf("Gemini пункт %d (попытка %d): %v; начало ответа: %q", number, i+1, lastErr, responseSnippet(raw))
 			continue
 		}
 		return body, nil
