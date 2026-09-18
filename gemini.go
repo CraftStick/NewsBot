@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 )
 
 const (
-	geminiMaxBatchAttempts   = 4
+	geminiMaxBatchAttempts   = 2
 	geminiMaxAPIRetries      = 5
 	geminiMaxOutputTokens    = 4800
 	geminiSingleOutputTokens = 1200
@@ -21,7 +22,15 @@ const (
 	// Потолок запросов к Gemini на один прогон. Без него каскад ретраев
 	// (4 попытки × 5 повторов, затем 6 пунктов × 3 лимита токенов) выжирает
 	// дневную квоту бесплатного тарифа за один-единственный дайджест.
-	geminiRunRequestBudget = 8
+	// Пакет (2 попытки) + поштучный режим (минимум 6) + запас на повторы. При
+	// 4 пакетных попытках и бюджете 8 поштучный режим не мог завершиться вообще.
+	geminiRunRequestBudget = 10
+	// geminiMinRequestGap — пауза между запросами: бесплатный тариф пускает
+	// 5 запросов в минуту, и пачка быстрых повторов упиралась в него.
+	geminiMinRequestGap = 13 * time.Second
+	// geminiMaxRetryWait — потолок ожидания перед повтором, даже если Gemini
+	// просит дольше: прогон ограничен 8 минутами.
+	geminiMaxRetryWait = 65 * time.Second
 
 	// Лимиты для фото-режима. Подпись Telegram жёстко ограничена, а сжатие в
 	// format.go режет пункты до первого предложения — чтобы вторая фраза дожила
@@ -30,16 +39,29 @@ const (
 	captionItemMaxChars    = 138
 )
 
-// requestBudget — общий на прогон счётчик запросов к Gemini.
+// requestBudget — общий на прогон счётчик запросов к Gemini с паузой между
+// ними, чтобы не упираться в поминутный лимит бесплатного тарифа.
 type requestBudget struct {
-	left int
+	left   int
+	minGap time.Duration
+	last   time.Time
 }
 
-func (b *requestBudget) take() error {
+func (b *requestBudget) take(ctx context.Context) error {
 	if b.left <= 0 {
 		return errBudgetExhausted
 	}
+	if !b.last.IsZero() && b.minGap > 0 {
+		if wait := b.minGap - time.Since(b.last); wait > 0 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(wait):
+			}
+		}
+	}
 	b.left--
+	b.last = time.Now()
 	return nil
 }
 
@@ -91,7 +113,7 @@ func generateDigest(ctx context.Context, cfg Config, articles []Article, publish
 				"лучше две плотных фразы по 40 символов, чем одна пустая.",
 			captionHeadingMaxChars, captionItemMaxChars)
 	}
-	budget := &requestBudget{left: geminiRunRequestBudget}
+	budget := &requestBudget{left: geminiRunRequestBudget, minGap: geminiMinRequestGap}
 
 	body, err := generateDigestBatch(ctx, client, cfg, fullPrompt, budget)
 	if err == nil {
@@ -246,18 +268,42 @@ func normalizeSingleNewsBlock(body string, number int) string {
 // errQuotaExhausted — понятное сообщение вместо простыни от Gemini при исчерпании
 // дневной квоты (её всё равно бесполезно ретраить в пределах запуска).
 var errQuotaExhausted = errors.New(
-	"дневной лимит запросов Gemini исчерпан (бесплатный тариф — 20 запросов в сутки). " +
+	"дневной лимит запросов Gemini исчерпан (бесплатный тариф). " +
 		"Сбросится в течение суток; для больших объёмов включите биллинг в Google AI Studio")
 
-// isQuotaExhausted — именно ДНЕВНАЯ квота (не поминутный рейт-лимит): ретраи не помогут.
+// isQuotaExhausted — именно ДНЕВНАЯ квота (не поминутный рейт-лимит): ретраи не
+// помогут. Различаем по quotaId. Имя метрики generate_content_free_tier_requests
+// есть в ОБОИХ видах ошибок — по нему поминутный лимит принимался за дневной,
+// и бот сдавался, хотя Gemini просил подождать 30 секунд.
 func isQuotaExhausted(err error) bool {
 	if err == nil {
 		return false
 	}
 	s := strings.ToLower(err.Error())
-	return strings.Contains(s, "perday") ||
-		strings.Contains(s, "per day") ||
-		strings.Contains(s, "free_tier_requests")
+	return strings.Contains(s, "perday") || strings.Contains(s, "per day")
+}
+
+var (
+	retryInRE    = regexp.MustCompile(`(?i)retry in ([0-9]+(?:\.[0-9]+)?)s`)
+	retryDelayRE = regexp.MustCompile(`(?i)retrydelay:\s*"?([0-9]+)s`)
+)
+
+// serverRetryDelay — сколько просит подождать сам Gemini (RetryInfo). Наш
+// backoff (1, 4, 9 с) короче типичных 30 с поминутного лимита: повторы падали
+// бы снова и жгли бюджет.
+func serverRetryDelay(err error) time.Duration {
+	s := err.Error()
+	if m := retryInRE.FindStringSubmatch(s); len(m) == 2 {
+		if f, e := strconv.ParseFloat(m[1], 64); e == nil {
+			return time.Duration(f * float64(time.Second))
+		}
+	}
+	if m := retryDelayRE.FindStringSubmatch(s); len(m) == 2 {
+		if n, e := strconv.Atoi(m[1]); e == nil {
+			return time.Duration(n) * time.Second
+		}
+	}
+	return 0
 }
 
 func isGeminiRetryable(err error) bool {
@@ -310,7 +356,7 @@ func callGemini(
 		if ctx.Err() != nil {
 			return "", "", ctx.Err()
 		}
-		if err := budget.take(); err != nil {
+		if err := budget.take(ctx); err != nil {
 			if lastErr != nil {
 				return "", "", fmt.Errorf("%w (последняя ошибка: %v)", err, lastErr)
 			}
@@ -322,6 +368,12 @@ func callGemini(
 			lastErr = fmt.Errorf("generate content: %w", err)
 			if isGeminiRetryable(err) && try < geminiMaxAPIRetries {
 				wait := time.Duration(try*try) * time.Second
+				if d := serverRetryDelay(err); d > 0 {
+					wait = d + time.Second // Gemini сам говорит, когда лимит отпустит
+				}
+				if wait > geminiMaxRetryWait {
+					wait = geminiMaxRetryWait
+				}
 				log.Printf("Gemini API: %v — повтор через %s (%d/%d)", err, wait, try, geminiMaxAPIRetries)
 				select {
 				case <-ctx.Done():
