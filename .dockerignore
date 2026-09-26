@@ -1,5 +1,5 @@
 .git
 .env
-treesheild-newsbot
+/treesheild-newsbot
 *.md
 deploy/
