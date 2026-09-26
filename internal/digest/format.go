@@ -1,28 +1,38 @@
-package main
+// Package digest проверяет и оформляет текст дайджеста, проставляет ссылки на
+// источники и помнит уже опубликованные темы.
+package digest
 
 import (
 	"fmt"
 	"regexp"
 	"strings"
 	"unicode"
+
+	"treesheild-newsbot/internal/news"
 )
 
 const (
-	titleEmojiID      = "5764829255015861596"
-	titleEmojiText    = "🗣"
-	subtitleEmojiID   = "5951891646445523477"
-	subtitleEmojiFB   = "📰"
-	closingEmojiID    = "5798587088077066898"
-	closingEmojiFB    = "👋"
-	newsBulletEmojiID = "5429501538806548545"
-	newsBulletEmojiFB = "✅"
-	requiredNewsItems  = 6
-	foreignNewsItemNum = 6 // пункт 6: зарубежная новость
-	telegramMaxMessage = 4096
+	titleEmojiID       = "5764829255015861596"
+	titleEmojiText     = "🗣"
+	subtitleEmojiID    = "5951891646445523477"
+	subtitleEmojiFB    = "📰"
+	closingEmojiID     = "5798587088077066898"
+	closingEmojiFB     = "👋"
+	newsBulletEmojiID  = "5429501538806548545"
+	newsBulletEmojiFB  = "✅"
+	RequiredNewsItems  = 6
+	ForeignNewsItemNum = 6 // пункт 6: зарубежная новость
+	TelegramMaxMessage = 4096
 	telegramMaxCaption = 1000 // запас к лимиту подписи Telegram (1024, считается после парсинга сущностей)
-	minNewsTextRunes  = 40
-	maxNewsTextRunes  = 320
-	maxNewsTitleRunes = 85
+	minNewsTextRunes   = 40
+	maxNewsTextRunes   = 320
+	maxNewsTitleRunes  = 85
+
+	// Лимиты для фото-режима. Подпись Telegram жёстко ограничена, а сжатие в
+	// fitNewsBodyToCaption режет пункты до первого предложения — чтобы вторая фраза дожила
+	// до отправки, пункт должен влезать в лимит сразу (см. TestCaptionBudget).
+	CaptionHeadingMaxChars = 50
+	CaptionItemMaxChars    = 138
 )
 
 var htmlTagRE = regexp.MustCompile(`<[^>]+>`)
@@ -55,7 +65,7 @@ func tgEmoji(id, fallback string) string {
 	return fmt.Sprintf(`<tg-emoji emoji-id="%s">%s</tg-emoji>`, id, fallback)
 }
 
-func countNewsItems(body string) int {
+func CountNewsItems(body string) int {
 	return len(newsItemHeading.FindAllStringIndex(body, -1))
 }
 
@@ -95,7 +105,7 @@ var headlineEmDashSource = regexp.MustCompile(`\s+[—–]\s+(?:«[^»]{1,40}»|
 
 // trimHeadline укорачивает заголовок для Telegram (ссылки подбираются по полному тексту).
 func trimHeadline(s string) string {
-	s = strings.TrimSpace(stripHTML(s))
+	s = strings.TrimSpace(news.StripHTML(s))
 	s = headlineSourceSuffix.ReplaceAllString(s, "")
 	s = headlineEmDashSource.ReplaceAllString(s, "")
 	s = strings.TrimSpace(s)
@@ -130,7 +140,7 @@ func textEndsComplete(text string) bool {
 	return unicode.IsPunct(last) || last == '»' || last == '…'
 }
 
-func validateSingleNewsBlock(body string) error {
+func ValidateSingleNewsBlock(body string) error {
 	blocks := splitNewsBlocks(strings.TrimSpace(body))
 	if len(blocks) == 0 {
 		return fmt.Errorf("нет блока новости")
@@ -149,19 +159,19 @@ func validateSingleNewsBlock(body string) error {
 	return nil
 }
 
-// validateNewsBody проверяет 6 пунктов: заголовок и два полных предложения в каждом.
-func validateNewsBody(body string) error {
+// ValidateNewsBody проверяет 6 пунктов: заголовок и два полных предложения в каждом.
+func ValidateNewsBody(body string) error {
 	body = strings.TrimSpace(body)
-	n := countNewsItems(body)
-	if n < requiredNewsItems {
-		return fmt.Errorf("пунктов %d из %d", n, requiredNewsItems)
+	n := CountNewsItems(body)
+	if n < RequiredNewsItems {
+		return fmt.Errorf("пунктов %d из %d", n, RequiredNewsItems)
 	}
 	blocks := splitNewsBlocks(body)
-	if len(blocks) < requiredNewsItems {
+	if len(blocks) < RequiredNewsItems {
 		return fmt.Errorf("не удалось разобрать блоки новостей")
 	}
-	for i, block := range blocks[:requiredNewsItems] {
-		title := extractNewsTitle(block)
+	for i, block := range blocks[:RequiredNewsItems] {
+		title := ExtractNewsTitle(block)
 		if len([]rune(title)) > maxNewsTitleRunes {
 			return fmt.Errorf("пункт %d: заголовок слишком длинный (%d симв.)", i+1, len([]rune(title)))
 		}
@@ -180,7 +190,7 @@ func validateNewsBody(body string) error {
 	return nil
 }
 
-func sanitizeNewsBody(body string) string {
+func SanitizeNewsBody(body string) string {
 	body = strings.TrimSpace(body)
 	for _, re := range sanitizePatterns {
 		body = strings.TrimSpace(re.ReplaceAllString(body, ""))
@@ -204,7 +214,7 @@ var (
 // Парсер знает только его, и любое отклонение модели от формата давало
 // «пунктов 0 из 6» на каждой попытке — дайджест не собирался вовсе.
 func normalizeNewsHeadings(body string) string {
-	if countNewsItems(body) >= requiredNewsItems {
+	if CountNewsItems(body) >= RequiredNewsItems {
 		return body
 	}
 	body = strongOpenRE.ReplaceAllString(body, "<b>")
@@ -212,7 +222,7 @@ func normalizeNewsHeadings(body string) string {
 	body = markdownBold.ReplaceAllString(body, "<b>$1</b>")
 	body = numberOnlyBold.ReplaceAllString(body, "<b>$1. $2</b>")
 	body = numberBeforeBold.ReplaceAllString(body, "<b>$1. $2</b>")
-	if countNewsItems(body) == 0 {
+	if CountNewsItems(body) == 0 {
 		body = bareNumbered.ReplaceAllString(body, "<b>$1. $2</b>")
 	}
 	return body
@@ -223,8 +233,8 @@ func injectNewsBullets(body string) string {
 	return newsItemHeading.ReplaceAllString(body, bullet+` <b>$1. `)
 }
 
-func assembleDigest(newsBody string) string {
-	newsBody = injectNewsBullets(sanitizeNewsBody(newsBody))
+func AssembleDigest(newsBody string) string {
+	newsBody = injectNewsBullets(SanitizeNewsBody(newsBody))
 
 	var b strings.Builder
 	b.WriteString(`<b>«Пятничный дайджест»</b> `)
@@ -239,26 +249,26 @@ func assembleDigest(newsBody string) string {
 	return b.String()
 }
 
-// assembleDigestForCaption собирает дайджест для подписи к фото и, если он не
+// AssembleDigestForCaption собирает дайджест для подписи к фото и, если он не
 // влезает в лимит Telegram, аккуратно ужимает тексты пунктов. ok=false — не
 // удалось ужать (тогда вызывающий шлёт фото и текст раздельно).
-func assembleDigestForCaption(newsBody string) (string, bool) {
+func AssembleDigestForCaption(newsBody string) (string, bool) {
 	body, ok := fitNewsBodyToCaption(newsBody, telegramMaxCaption)
 	if !ok {
 		return "", false
 	}
-	return assembleDigest(body), true
+	return AssembleDigest(body), true
 }
 
 func fitNewsBodyToCaption(newsBody string, maxVisible int) (string, bool) {
-	if captionVisibleLen(assembleDigest(newsBody)) <= maxVisible {
+	if captionVisibleLen(AssembleDigest(newsBody)) <= maxVisible {
 		return newsBody, true
 	}
 	// Ужимаем ТОЛЬКО по границе предложений — до одного законченного предложения
 	// в пункте. Слова не рвём: если не влезло и так, вызывающий шлёт фото и текст
 	// раздельно (лучше два сообщения, чем оборванные на полуслове фразы).
 	one := mapItemBodies(newsBody, firstSentence)
-	if captionVisibleLen(assembleDigest(one)) <= maxVisible {
+	if captionVisibleLen(AssembleDigest(one)) <= maxVisible {
 		return one, true
 	}
 	return "", false

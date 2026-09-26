@@ -1,4 +1,6 @@
-package main
+// Package telegram отправляет превью в личку и обслуживает кнопку «Другой
+// дайджест» и команду /digest.
+package telegram
 
 import (
 	"context"
@@ -12,19 +14,22 @@ import (
 	"syscall"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
+	"treesheild-newsbot/internal/config"
 )
 
 const cbRegenerateDigest = "regenerate_digest"
 
 type telegramController struct {
-	cfg    Config
-	bot    *tgbotapi.BotAPI
-	chatID int64
-	mu     sync.Mutex
+	cfg        config.Config
+	bot        *tgbotapi.BotAPI
+	chatID     int64
+	mu         sync.Mutex
+	regenerate func() error // пересборка дайджеста по кнопке и /digest
 }
 
-func newTelegramController(cfg Config) (*telegramController, error) {
-	chatID, err := parsePreviewChatID(cfg.TelegramPreviewChatID)
+func newTelegramController(cfg config.Config) (*telegramController, error) {
+	chatID, err := config.ParsePreviewChatID(cfg.TelegramPreviewChatID)
 	if err != nil {
 		return nil, err
 	}
@@ -97,9 +102,9 @@ func (tc *telegramController) sendErrorNotice(text string) {
 	}
 }
 
-// notifyDigestFailure шлёт владельцу превью сообщение, если дайджест по
+// NotifyFailure шлёт владельцу превью сообщение, если дайджест по
 // расписанию не собрался — иначе о провале узнать неоткуда (только логи).
-func notifyDigestFailure(cfg Config, cause error) {
+func NotifyFailure(cfg config.Config, cause error) {
 	tc, err := newTelegramController(cfg)
 	if err != nil {
 		log.Printf("не удалось создать бота для уведомления об ошибке: %v", err)
@@ -122,7 +127,7 @@ func (tc *telegramController) startRegenerate(chatID int64) {
 	go func() {
 		defer tc.mu.Unlock()
 		tc.sendPlain(chatID, "⏳ Собираю новый дайджест (RSS + Gemini)…")
-		if err := runDigest(tc.cfg); err != nil {
+		if err := tc.regenerate(); err != nil {
 			log.Printf("дайджест: %v", err)
 			tc.sendPlain(chatID, "❌ Ошибка: "+err.Error())
 		}
@@ -178,11 +183,12 @@ func (tc *telegramController) pollingAvailable() error {
 	return nil
 }
 
-func runTelegramBot(ctx context.Context, cfg Config) error {
+func Run(ctx context.Context, cfg config.Config, regenerate func() error) error {
 	tc, err := newTelegramController(cfg)
 	if err != nil {
 		return err
 	}
+	tc.regenerate = regenerate
 	log.Printf("Telegram: @%s (кнопка и /digest)", tc.bot.Self.UserName)
 
 	u := tgbotapi.NewUpdate(0)
@@ -202,7 +208,7 @@ func runTelegramBot(ctx context.Context, cfg Config) error {
 	}
 }
 
-func runTelegramBotUntilSignal(cfg Config) {
+func RunUntilSignal(cfg config.Config, regenerate func() error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -226,7 +232,7 @@ func runTelegramBotUntilSignal(cfg Config) {
 		return
 	}
 
-	if err := runTelegramBot(ctx, cfg); err != nil {
+	if err := Run(ctx, cfg, regenerate); err != nil {
 		log.Printf("telegram bot: %v", err)
 	}
 }

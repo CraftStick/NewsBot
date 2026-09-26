@@ -1,6 +1,10 @@
-package main
+package digest
 
-import "testing"
+import (
+	"testing"
+
+	"treesheild-newsbot/internal/news"
+)
 
 func TestTitleMatchScore(t *testing.T) {
 	t.Parallel()
@@ -16,7 +20,7 @@ func TestTitleMatchScore(t *testing.T) {
 
 func TestEnsureNewsLinks(t *testing.T) {
 	t.Parallel()
-	articles := []Article{
+	articles := []news.Article{
 		{Title: "РКН и VPN", Link: "https://example.com/rkn", Source: "Test", RUPriority: 2},
 		{Title: "Foreign leak", Link: "https://example.com/en", Source: "EN", RUPriority: 0},
 	}
@@ -25,7 +29,7 @@ func TestEnsureNewsLinks(t *testing.T) {
 
 <b>2. Зарубеж</b>
 First foreign privacy story sentence here today. Second sentence adds international context now.`
-	out := ensureNewsLinks(body, articles)
+	out := EnsureNewsLinks(body, articles)
 	blocks := splitNewsBlocks(out)
 	if len(blocks) != 2 {
 		t.Fatalf("blocks: got %d", len(blocks))

@@ -1,4 +1,4 @@
-package main
+package digest
 
 import (
 	"encoding/json"
@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"treesheild-newsbot/internal/news"
 )
 
 const (
@@ -37,10 +39,10 @@ func historyFilePath() string {
 	return ".digest_history"
 }
 
-// readDigestHistory возвращает недавно опубликованные темы, свежие — в конце.
+// ReadHistory возвращает недавно опубликованные темы, свежие — в конце.
 // Отсутствующий или битый файл не ошибка: дайджест важнее памяти, просто
 // соберётся без дедупа.
-func readDigestHistory(now time.Time) []publishedItem {
+func ReadHistory(now time.Time) []publishedItem {
 	raw, err := os.ReadFile(historyFilePath())
 	if err != nil {
 		return nil
@@ -65,10 +67,10 @@ func pruneHistory(items []publishedItem, now time.Time) []publishedItem {
 	return out
 }
 
-// recordDigestHistory дописывает темы отправленного дайджеста (temp+rename, как
-// и отметка времени в state.go).
-func recordDigestHistory(newsHTML string, now time.Time) error {
-	items := pruneHistory(append(readDigestHistory(now), extractPublishedItems(newsHTML, now)...), now)
+// RecordHistory дописывает темы отправленного дайджеста (temp+rename, как
+// и отметка времени в internal/app/state.go).
+func RecordHistory(newsHTML string, now time.Time) error {
+	items := pruneHistory(append(ReadHistory(now), extractPublishedItems(newsHTML, now)...), now)
 	data, err := json.Marshal(items)
 	if err != nil {
 		return err
@@ -86,7 +88,7 @@ func recordDigestHistory(newsHTML string, now time.Time) error {
 func extractPublishedItems(newsHTML string, now time.Time) []publishedItem {
 	var out []publishedItem
 	for _, block := range splitNewsBlocks(newsHTML) {
-		title := extractNewsTitle(block)
+		title := ExtractNewsTitle(block)
 		link := extractNewsURL(block)
 		if title == "" && link == "" {
 			continue
@@ -96,10 +98,10 @@ func extractPublishedItems(newsHTML string, now time.Time) []publishedItem {
 	return out
 }
 
-// dropPublished убирает из ленты статьи, которые уже уходили в дайджест. Ссылка
+// DropPublished убирает из ленты статьи, которые уже уходили в дайджест. Ссылка
 // совпадает точно; заголовок сравниваем нормализованным — на случай, если та же
 // новость пришла из другой ленты.
-func dropPublished(articles []Article, history []publishedItem) []Article {
+func DropPublished(articles []news.Article, history []publishedItem) []news.Article {
 	if len(history) == 0 {
 		return articles
 	}
@@ -114,7 +116,7 @@ func dropPublished(articles []Article, history []publishedItem) []Article {
 		}
 	}
 
-	out := make([]Article, 0, len(articles))
+	out := make([]news.Article, 0, len(articles))
 	for _, a := range articles {
 		if links[strings.TrimSpace(a.Link)] || titles[normalizeTitle(a.Title)] {
 			continue
@@ -124,8 +126,8 @@ func dropPublished(articles []Article, history []publishedItem) []Article {
 	return out
 }
 
-// historyTitles — темы для промпта, свежие первыми.
-func historyTitles(history []publishedItem) []string {
+// HistoryTitles — темы для промпта, свежие первыми.
+func HistoryTitles(history []publishedItem) []string {
 	out := make([]string, 0, historyPromptItems)
 	for i := len(history) - 1; i >= 0 && len(out) < historyPromptItems; i-- {
 		if t := strings.TrimSpace(history[i].Title); t != "" {

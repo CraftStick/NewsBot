@@ -22,7 +22,7 @@ id -u newsbot &>/dev/null || useradd --system --home "$INSTALL_DIR" --shell /usr
 
 mkdir -p "$INSTALL_DIR"
 cd "$ROOT_DIR"
-CGO_ENABLED=0 go build -ldflags "-s -w" -o "$INSTALL_DIR/$APP_NAME" .
+CGO_ENABLED=0 go build -ldflags "-s -w" -o "$INSTALL_DIR/$APP_NAME" "./cmd/$APP_NAME"
 
 FIRST_INSTALL=0
 if [[ ! -f "$INSTALL_DIR/.env" ]]; then

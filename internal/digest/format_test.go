@@ -1,4 +1,4 @@
-package main
+package digest
 
 import (
 	"strings"
@@ -70,10 +70,10 @@ func TestValidateNewsBody(t *testing.T) {
 
 <b>6. F</b>
 First sentence about privacy abroad. Second sentence with more context.`
-	if err := validateNewsBody(ok); err != nil {
+	if err := ValidateNewsBody(ok); err != nil {
 		t.Fatalf("valid body: %v", err)
 	}
-	if err := validateNewsBody(`<b>1. Only</b>
+	if err := ValidateNewsBody(`<b>1. Only</b>
 short`); err == nil {
 		t.Fatal("expected error for single short item")
 	}

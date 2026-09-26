@@ -1,4 +1,5 @@
-package main
+// Package news собирает статьи за неделю из RSS-лент и отбирает их по теме.
+package news
 
 import (
 	"context"
@@ -136,7 +137,7 @@ func fetchFeedWithRetry(ctx context.Context, parser *gofeed.Parser, url string) 
 	return nil, lastErr
 }
 
-func fetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, error) {
+func FetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, error) {
 	since := now.Add(-7 * 24 * time.Hour)
 	parser := gofeed.NewParser()
 	parser.Client = httpClient
@@ -201,7 +202,7 @@ func fetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, error) 
 				Link:        link,
 				Summary:     summary,
 				PublishedAt: pub,
-				RUPriority:  ruNewsPriority(title, summary),
+				RUPriority:  RuNewsPriority(title, summary),
 				Relevance:   relevance,
 			})
 		}
@@ -214,7 +215,7 @@ func fetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, error) 
 	return out, nil
 }
 
-func ruNewsPriority(title, summary string) int {
+func RuNewsPriority(title, summary string) int {
 	text := strings.ToLower(title + " " + summary)
 	score := 0
 	for _, kw := range ruBoostKeywords {
@@ -316,15 +317,15 @@ func firstLink(links []string) string {
 
 func shortSummary(item *gofeed.Item) string {
 	if item.Description != "" {
-		return truncate(stripHTML(item.Description), maxSummaryRunes)
+		return truncate(StripHTML(item.Description), maxSummaryRunes)
 	}
 	if item.Content != "" {
-		return truncate(stripHTML(item.Content), maxSummaryRunes)
+		return truncate(StripHTML(item.Content), maxSummaryRunes)
 	}
 	return ""
 }
 
-func stripHTML(s string) string {
+func StripHTML(s string) string {
 	s = strings.ReplaceAll(s, "<br>", " ")
 	s = strings.ReplaceAll(s, "<br/>", " ")
 	s = strings.ReplaceAll(s, "\n", " ")
@@ -340,7 +341,7 @@ func stripHTML(s string) string {
 }
 
 func cleanText(s string) string {
-	return strings.TrimSpace(stripHTML(s))
+	return strings.TrimSpace(StripHTML(s))
 }
 
 func truncate(s string, max int) string {
@@ -351,7 +352,7 @@ func truncate(s string, max int) string {
 	return string(r[:max]) + "…"
 }
 
-func articlesForPrompt(all []Article) []Article {
+func ArticlesForPrompt(all []Article) []Article {
 	if len(all) <= maxArticlesInPrompt {
 		return all
 	}
@@ -371,8 +372,8 @@ func shortSource(name string) string {
 	return name
 }
 
-func buildNewsDigestPrompt(articles []Article, maxItems int) string {
-	pool := articlesForPrompt(articles)
+func BuildDigestPrompt(articles []Article, maxItems int) string {
+	pool := ArticlesForPrompt(articles)
 	if maxItems > 0 && len(pool) > maxItems {
 		pool = pool[:maxItems]
 	}

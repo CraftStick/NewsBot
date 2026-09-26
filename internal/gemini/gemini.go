@@ -1,4 +1,5 @@
-package main
+// Package gemini генерирует текст дайджеста через Gemini API.
+package gemini
 
 import (
 	"context"
@@ -11,6 +12,10 @@ import (
 	"time"
 
 	"google.golang.org/genai"
+
+	"treesheild-newsbot/internal/config"
+	"treesheild-newsbot/internal/digest"
+	"treesheild-newsbot/internal/news"
 )
 
 const (
@@ -31,12 +36,6 @@ const (
 	// geminiMaxRetryWait — потолок ожидания перед повтором, даже если Gemini
 	// просит дольше: прогон ограничен 8 минутами.
 	geminiMaxRetryWait = 65 * time.Second
-
-	// Лимиты для фото-режима. Подпись Telegram жёстко ограничена, а сжатие в
-	// format.go режет пункты до первого предложения — чтобы вторая фраза дожила
-	// до отправки, пункт должен влезать в лимит сразу (см. TestCaptionBudget).
-	captionHeadingMaxChars = 50
-	captionItemMaxChars    = 138
 )
 
 // requestBudget — общий на прогон счётчик запросов к Gemini с паузой между
@@ -89,7 +88,7 @@ func thinkingConfigFor(model string) *genai.ThinkingConfig {
 
 var singleNewsNumRE = regexp.MustCompile(`<b>\s*\d{1,2}\.\s`)
 
-func generateDigest(ctx context.Context, cfg Config, articles []Article, published []string) (string, error) {
+func GenerateDigest(ctx context.Context, cfg config.Config, articles []news.Article, published []string) (string, error) {
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey:  cfg.GeminiAPIKey,
 		Backend: genai.BackendGeminiAPI,
@@ -112,7 +111,7 @@ func generateDigest(ctx context.Context, cfg Config, articles []Article, publish
 	}
 	log.Printf("Пакетная генерация не удалась (%v), пробуем по одной новости…", err)
 
-	return generateDigestSequential(ctx, client, cfg, buildNewsDigestPrompt(articles, geminiSequentialArticles), published, budget)
+	return generateDigestSequential(ctx, client, cfg, news.BuildDigestPrompt(articles, geminiSequentialArticles), published, budget)
 }
 
 // responseSnippet — начало ответа модели для лога отбракованных попыток.
@@ -127,8 +126,8 @@ func responseSnippet(s string) string {
 
 // buildDigestUserPrompt — пользовательская часть запроса пакетного режима:
 // лента, стоп-лист прошлых тем и ограничения фото-подписи.
-func buildDigestUserPrompt(cfg Config, articles []Article, published []string) string {
-	prompt := buildNewsDigestPrompt(articles, 0)
+func buildDigestUserPrompt(cfg config.Config, articles []news.Article, published []string) string {
+	prompt := news.BuildDigestPrompt(articles, 0)
 	if len(published) > 0 {
 		prompt += "\n\nСТОП-ЛИСТ. Эти темы уже выходили в прошлых выпусках. Не бери их снова ни в каком виде: " +
 			"ни то же событие под другой формулировкой, ни его продолжение или уточнение. Нужны другие сюжеты:\n- " +
@@ -141,7 +140,7 @@ func buildDigestUserPrompt(cfg Config, articles []Article, published []string) s
 				"Весь пункт целиком (заголовок плюс оба предложения) — не длиннее %d символов. "+
 				"Оба предложения обязательны, и второе должно нести НОВЫЙ факт, а не пересказ заголовка: "+
 				"лучше две плотных фразы по 40 символов, чем одна пустая.",
-			captionHeadingMaxChars, captionItemMaxChars)
+			digest.CaptionHeadingMaxChars, digest.CaptionItemMaxChars)
 	}
 	return prompt
 }
@@ -149,7 +148,7 @@ func buildDigestUserPrompt(cfg Config, articles []Article, published []string) s
 func generateDigestBatch(
 	ctx context.Context,
 	client *genai.Client,
-	cfg Config,
+	cfg config.Config,
 	userText string,
 	budget *requestBudget,
 ) (string, error) {
@@ -171,8 +170,8 @@ func generateDigestBatch(
 		}
 
 		raw := body
-		body = sanitizeNewsBody(body)
-		if err := validateNewsBody(body); err != nil {
+		body = digest.SanitizeNewsBody(body)
+		if err := digest.ValidateNewsBody(body); err != nil {
 			lastErr = fmt.Errorf("%v (finish=%s)", err, reason)
 			// Без начала ответа «пунктов 0 из 6» не отличить от отказа модели
 			// или чужого формата — приходилось гадать по коду.
@@ -190,7 +189,7 @@ func generateDigestBatch(
 func generateDigestSequential(
 	ctx context.Context,
 	client *genai.Client,
-	cfg Config,
+	cfg config.Config,
 	feed string,
 	published []string,
 	budget *requestBudget,
@@ -200,13 +199,13 @@ func generateDigestSequential(
 	// выбранные в этом прогоне.
 	usedTitles := append([]string(nil), published...)
 
-	for n := 1; n <= requiredNewsItems; n++ {
+	for n := 1; n <= digest.RequiredNewsItems; n++ {
 		body, err := generateSingleNewsItem(ctx, client, cfg, feed, n, usedTitles, budget)
 		if err != nil {
 			return "", err
 		}
 		parts = append(parts, body)
-		if title := extractNewsTitle(body); title != "" {
+		if title := digest.ExtractNewsTitle(body); title != "" {
 			usedTitles = append(usedTitles, title)
 		}
 	}
@@ -217,7 +216,7 @@ func generateDigestSequential(
 func generateSingleNewsItem(
 	ctx context.Context,
 	client *genai.Client,
-	cfg Config,
+	cfg config.Config,
 	feed string,
 	number int,
 	used []string,
@@ -241,8 +240,8 @@ func generateSingleNewsItem(
 			return "", err
 		}
 		raw := body
-		body = sanitizeNewsBody(normalizeSingleNewsBlock(body, number))
-		if err := validateSingleNewsBlock(body); err != nil {
+		body = digest.SanitizeNewsBody(normalizeSingleNewsBlock(body, number))
+		if err := digest.ValidateSingleNewsBlock(body); err != nil {
 			lastErr = fmt.Errorf("%w (finish=%s)", err, reason)
 			log.Printf("Gemini пункт %d (попытка %d): %v; начало ответа: %q", number, i+1, lastErr, responseSnippet(raw))
 			continue
@@ -251,6 +250,29 @@ func generateSingleNewsItem(
 	}
 	return "", fmt.Errorf("пункт %d: %w", number, lastErr)
 }
+
+const systemPrompt = `Редактор IT-дайджеста для аудитории в России. Выбери 6 тем недели: VPN, блокировки И разблокировки, приватность, ИБ. Разблокировки, снятие или смягчение ограничений, возврат сервисов — тоже бери, не только запреты.
+
+Пункты 1–5 — про Россию (приоритет): Роскомнадзор, Госдума, Минцифры, VPN, Telegram, Яндекс, рунет, операторы. Если темы есть в ленте — минимум 4 из 5 про РФ.
+Пункт 6 — одна главная ЗАРУБЕЖНАЯ новость (США, ЕС и т.д.), не про Россию.
+
+В ленте у каждой строки дата DD.MM.YYYY — бери ТОЛЬКО новости за последние 7 дней. Не используй события из прошлых месяцев и свой «фон».
+
+Приоритет — тому, что УЖЕ произошло. Планы и намерения («готовят», «дорабатывают», «могут сделать», «предложили») бери только если по теме нет ничего свершившегося: бюрократический процесс — не событие недели. Но всегда бери САМОЕ СВЕЖЕЕ по дате состояние темы: не пиши «готовят/планируют/может стать», если более поздняя строка в ленте показывает, что это уже случилось (сервис уже блокируют — значит его не «готовятся» блокировать). Не повторяй одну тему в разных пунктах. Не бери проходные реакции («кто-то против», «прокомментировал»), если в ленте есть само событие.
+Не больше одного пункта про одного актора: три пункта про Минцифры в одном выпуске — это не дайджест недели, а пересказ одной пресс-службы. То же для Роскомнадзора, Яндекса, Telegram.
+Масштаб обязателен: событие должно касаться массового пользователя — миллионов людей, крупной платформы, общероссийских или международных правил. Частные судебные дела, приговоры конкретным людям, локальные инциденты в отдельной организации и разбирательства между компаниями не бери, даже если там фигурируют утечка или взлом.
+Пункт 6 — зарубежная новость мирового значения (регулятор ЕС/США, крупная платформа, массовая утечка), а не происшествие местного масштаба.
+Не бери корпоративные пресс-релизы: запуск продуктов и тарифов, интеграции сервисов, «улучшили сеть в регионе», партнёрства, маркетинговые исследования и опросы. Знакомый бренд в заголовке (Яндекс, МТС, Сбер) сам по себе новостью не делает. Пункт обязан быть про доступ, блокировки, приватность, слежку, утечки, безопасность или регулирование — если в строке этого нет, пропусти её. Но пунктов всегда РОВНО 6: если тематических новостей про РФ не хватает, добери сильной отраслевой или ещё одной зарубежной темой — пресс-релиз только в самом крайнем случае.
+
+Пиши кратко. Заголовок — короткая фраза (до 10 слов, до 80 символов): суть своими словами, не копируй длинный title из ленты.
+Под заголовком РОВНО 2 коротких предложения. Второе обязано добавлять НОВЫЙ факт: кого касается, что именно меняется, с какого срока, чем грозит. Пересказ заголовка другими словами не считается предложением.
+
+СТРОГО 6 пунктов: <b>1.</b> … <b>6.</b>
+<b>N. Заголовок</b>
+два предложения
+
+Запрещено: emoji, вступления, шапка, прощание, реклама Tree Shield, markdown, ссылки в тексте, абзацы длиннее двух предложений.
+Тег <b> — только в строке заголовка.`
 
 const systemPromptSingle = `Редактор IT-дайджеста. Выбери ОДНУ новость по запросу.
 <b>N. Заголовок</b> — до 10 слов, до 80 символов.
@@ -262,7 +284,7 @@ func buildSingleNewsPrompt(feed string, number int, used []string) string {
 	b.WriteString("Лента за 7 дней:\n")
 	b.WriteString(feed)
 	b.WriteByte('\n')
-	if number == foreignNewsItemNum {
+	if number == digest.ForeignNewsItemNum {
 		b.WriteString("\nНужен пункт <b>6.</b> — одна важная ЗАРУБЕЖНАЯ новость (не про Россию).\n")
 	} else {
 		fmt.Fprintf(&b, "\nНужен пункт <b>%d.</b> — новость про Россию (РКН, Госдума, VPN, Telegram, Яндекс, рунет).\n", number)
@@ -277,7 +299,7 @@ func buildSingleNewsPrompt(feed string, number int, used []string) string {
 
 func normalizeSingleNewsBlock(body string, number int) string {
 	body = strings.TrimSpace(body)
-	if countNewsItems(body) == 0 {
+	if digest.CountNewsItems(body) == 0 {
 		if !strings.HasPrefix(body, "<b>") {
 			body = fmt.Sprintf("<b>%d. %s</b>\n%s", number, body, "")
 		}
@@ -348,7 +370,7 @@ func isGeminiRetryable(err error) bool {
 func callGemini(
 	ctx context.Context,
 	client *genai.Client,
-	cfg Config,
+	cfg config.Config,
 	systemPrompt, userText string,
 	attempt int,
 	maxOut int32,

@@ -1,4 +1,4 @@
-package main
+package digest
 
 import (
 	"fmt"
@@ -7,11 +7,13 @@ import (
 	"regexp"
 	"strings"
 	"unicode"
+
+	"treesheild-newsbot/internal/news"
 )
 
 var (
-	hrefInBlock      = regexp.MustCompile(`(?i)<a\s+href="([^"]+)"`)
-	extractLinkRE    = regexp.MustCompile(`(?is)<a\s+href="[^"]+">(.*?)</a>`)
+	hrefInBlock       = regexp.MustCompile(`(?i)<a\s+href="([^"]+)"`)
+	extractLinkRE     = regexp.MustCompile(`(?is)<a\s+href="[^"]+">(.*?)</a>`)
 	newsTitleInBoldRE = regexp.MustCompile(`(?is)<b>\s*\d{1,2}\.\s*(.*?)</b>`)
 )
 
@@ -23,15 +25,15 @@ func extractNewsURL(block string) string {
 	return strings.TrimSpace(m[1])
 }
 
-func extractNewsTitle(block string) string {
+func ExtractNewsTitle(block string) string {
 	if m := extractLinkRE.FindStringSubmatch(block); len(m) >= 2 {
-		return strings.TrimSpace(stripHTML(m[1]))
+		return strings.TrimSpace(news.StripHTML(m[1]))
 	}
 	m := newsTitleInBoldRE.FindStringSubmatch(block)
 	if len(m) < 2 {
 		return ""
 	}
-	title := stripHTML(m[1])
+	title := news.StripHTML(m[1])
 	title = hrefInBlock.ReplaceAllString(title, "")
 	return strings.TrimSpace(title)
 }
@@ -83,16 +85,16 @@ func titleMatchScore(a, b string) int {
 }
 
 // findBestArticle ищет статью по заголовку и тексту; used — уже занятые URL.
-func findBestArticle(title, bodyText string, articles []Article, used map[string]bool) (*Article, int) {
+func findBestArticle(title, bodyText string, articles []news.Article, used map[string]bool) (*news.Article, int) {
 	query := normalizeTitle(title)
 	if query == "" {
-		query = normalizeTitle(stripHTML(bodyText))
+		query = normalizeTitle(news.StripHTML(bodyText))
 	}
 	if query == "" {
 		return nil, 0
 	}
 
-	var best *Article
+	var best *news.Article
 	bestScore := 0
 	for i := range articles {
 		a := &articles[i]
@@ -113,14 +115,14 @@ func findBestArticle(title, bodyText string, articles []Article, used map[string
 	return best, bestScore
 }
 
-func pickUnusedArticle(articles []Article, used map[string]bool, preferForeign bool) *Article {
-	var best *Article
+func pickUnusedArticle(articles []news.Article, used map[string]bool, preferForeign bool) *news.Article {
+	var best *news.Article
 	for i := range articles {
 		a := &articles[i]
 		if a.Link == "" || used[a.Link] {
 			continue
 		}
-		isForeign := ruNewsPriority(a.Title, a.Summary) == 0
+		isForeign := news.RuNewsPriority(a.Title, a.Summary) == 0
 		if preferForeign && !isForeign {
 			continue
 		}
@@ -144,13 +146,13 @@ func pickUnusedArticle(articles []Article, used map[string]bool, preferForeign b
 	return nil
 }
 
-func ensureNewsLinks(body string, articles []Article) string {
+func EnsureNewsLinks(body string, articles []news.Article) string {
 	blocks := splitNewsBlocks(body)
 	if len(blocks) == 0 {
 		return body
 	}
-	if len(blocks) > requiredNewsItems {
-		blocks = blocks[:requiredNewsItems]
+	if len(blocks) > RequiredNewsItems {
+		blocks = blocks[:RequiredNewsItems]
 	}
 
 	used := make(map[string]bool)
@@ -162,11 +164,11 @@ func ensureNewsLinks(body string, articles []Article) string {
 			num = parseNewsNum(m[1])
 		}
 
-		title := extractNewsTitle(block)
+		title := ExtractNewsTitle(block)
 		text := newsBlockBody(block)
 		url := extractNewsURL(block)
 
-		var matched *Article
+		var matched *news.Article
 		if url == "" {
 			var score int
 			matched, score = findBestArticle(title, text, articles, used)
@@ -175,7 +177,7 @@ func ensureNewsLinks(body string, articles []Article) string {
 			}
 		}
 
-		preferForeign := num == foreignNewsItemNum
+		preferForeign := num == ForeignNewsItemNum
 		if url == "" {
 			matched = pickUnusedArticle(articles, used, preferForeign)
 			if matched != nil {
@@ -224,12 +226,12 @@ func parseNewsNum(s string) int {
 	return n
 }
 
-func validateNewsLinks(body string) error {
+func ValidateNewsLinks(body string) error {
 	blocks := splitNewsBlocks(body)
-	if len(blocks) < requiredNewsItems {
+	if len(blocks) < RequiredNewsItems {
 		return fmt.Errorf("мало блоков для проверки ссылок")
 	}
-	for i := 0; i < requiredNewsItems; i++ {
+	for i := 0; i < RequiredNewsItems; i++ {
 		if extractNewsURL(blocks[i]) == "" {
 			return fmt.Errorf("пункт %d без ссылки на источник", i+1)
 		}

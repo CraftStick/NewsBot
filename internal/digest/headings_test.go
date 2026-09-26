@@ -1,4 +1,4 @@
-package main
+package digest
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ func TestNormalizeNewsHeadings(t *testing.T) {
 
 	item := func(format string) string {
 		var b strings.Builder
-		for i := 1; i <= requiredNewsItems; i++ {
+		for i := 1; i <= RequiredNewsItems; i++ {
 			fmt.Fprintf(&b, format, i, i)
 			b.WriteString("Первое предложение про событие. Второе предложение с новым фактом.\n\n")
 		}
@@ -27,12 +27,12 @@ func TestNormalizeNewsHeadings(t *testing.T) {
 		"без разметки 1. Заголовок":         item("%d. Заголовок %d\n"),
 	}
 	for name, body := range cases {
-		got := sanitizeNewsBody(body)
-		if n := countNewsItems(got); n != requiredNewsItems {
-			t.Errorf("%s: пунктов %d из %d после нормализации:\n%s", name, n, requiredNewsItems, got)
+		got := SanitizeNewsBody(body)
+		if n := CountNewsItems(got); n != RequiredNewsItems {
+			t.Errorf("%s: пунктов %d из %d после нормализации:\n%s", name, n, RequiredNewsItems, got)
 			continue
 		}
-		if title := extractNewsTitle(splitNewsBlocks(got)[0]); title != "Заголовок 1" {
+		if title := ExtractNewsTitle(splitNewsBlocks(got)[0]); title != "Заголовок 1" {
 			t.Errorf("%s: заголовок извлёкся как %q", name, title)
 		}
 	}
@@ -58,7 +58,7 @@ func TestNormalizeLeavesProseRefusal(t *testing.T) {
 
 	prose := "К сожалению, в ленте недостаточно новостей, которые подходят под все критерии. " +
 		"Могу предложить дайджест из четырёх пунктов."
-	if n := countNewsItems(sanitizeNewsBody(prose)); n != 0 {
+	if n := CountNewsItems(SanitizeNewsBody(prose)); n != 0 {
 		t.Fatalf("из отказа прозой получилось %d пунктов", n)
 	}
 }

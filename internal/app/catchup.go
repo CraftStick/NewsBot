@@ -1,10 +1,13 @@
-package main
+package app
 
 import (
 	"log"
 	"time"
 
 	"github.com/robfig/cron/v3"
+
+	"treesheild-newsbot/internal/config"
+	"treesheild-newsbot/internal/telegram"
 )
 
 // catchUpWindow — насколько «просроченный» дайджест ещё имеет смысл досылать.
@@ -28,10 +31,10 @@ func lastMissedSlot(sched cron.Schedule, since, now time.Time) (time.Time, bool)
 	return last, found
 }
 
-// runCatchUpIfMissed при старте демона проверяет, не пропущен ли пятничный слот
+// RunCatchUpIfMissed при старте демона проверяет, не пропущен ли пятничный слот
 // из-за простоя, и досылает дайджест. Дедуп — по файлу .last_digest, поэтому
 // частые ребуты не приведут к нескольким рассылкам.
-func runCatchUpIfMissed(cfg Config) {
+func RunCatchUpIfMissed(cfg config.Config) {
 	now := time.Now().In(cfg.Timezone)
 
 	lastSent, ok := readDigestSent(cfg.Timezone)
@@ -62,8 +65,8 @@ func runCatchUpIfMissed(cfg Config) {
 
 	log.Printf("навёрстывание: пропущен дайджест за %s — собираю сейчас",
 		slot.Format("02.01.2006 15:04"))
-	if err := runDigest(cfg); err != nil {
+	if err := RunDigest(cfg); err != nil {
 		log.Printf("навёрстывание не удалось: %v", err)
-		notifyDigestFailure(cfg, err)
+		telegram.NotifyFailure(cfg, err)
 	}
 }

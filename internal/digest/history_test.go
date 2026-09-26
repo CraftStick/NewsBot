@@ -1,9 +1,11 @@
-package main
+package digest
 
 import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"treesheild-newsbot/internal/news"
 )
 
 func TestDropPublishedByLink(t *testing.T) {
@@ -13,17 +15,17 @@ func TestDropPublishedByLink(t *testing.T) {
 	history := []publishedItem{
 		{Title: "«Яндекс» запустил виртуального оператора", Link: "https://cnews.ru/yandex-sim", SentAt: now.Add(-24 * time.Hour)},
 	}
-	articles := []Article{
+	articles := []news.Article{
 		{Title: "Яндекс Сим: тарифы", Link: "https://cnews.ru/yandex-sim"},
 		{Title: "«Яндекс» запустил виртуального оператора", Link: "https://ixbt.com/other"}, // тот же сюжет из другой ленты
 		{Title: "Минцифры и реформа лицензий", Link: "https://comnews.ru/reform"},
 	}
 
-	got := dropPublished(articles, history)
+	got := DropPublished(articles, history)
 	if len(got) != 1 || got[0].Link != "https://comnews.ru/reform" {
 		t.Fatalf("ожидали только новую статью, получили %+v", got)
 	}
-	if len(dropPublished(articles, nil)) != len(articles) {
+	if len(DropPublished(articles, nil)) != len(articles) {
 		t.Fatal("пустая история не должна ничего отбрасывать")
 	}
 }
@@ -54,7 +56,7 @@ func TestHistoryTitlesNewestFirst(t *testing.T) {
 	}
 	items = append(items, publishedItem{Title: "самая свежая", Link: "https://y", SentAt: now})
 
-	got := historyTitles(items)
+	got := HistoryTitles(items)
 	if len(got) != historyPromptItems {
 		t.Fatalf("ожидали %d тем, получили %d", historyPromptItems, len(got))
 	}
@@ -72,11 +74,11 @@ func TestHistoryRoundTrip(t *testing.T) {
 		{"«Яндекс» запустил оператора", "Первое предложение. Второе предложение."},
 		{"Реформа Минцифры", "Первое предложение. Второе предложение."},
 	})
-	if err := recordDigestHistory(body, now); err != nil {
+	if err := RecordHistory(body, now); err != nil {
 		t.Fatalf("запись истории: %v", err)
 	}
 
-	got := readDigestHistory(now)
+	got := ReadHistory(now)
 	if len(got) != 2 {
 		t.Fatalf("ожидали 2 темы, получили %d (%+v)", len(got), got)
 	}
@@ -85,8 +87,8 @@ func TestHistoryRoundTrip(t *testing.T) {
 	}
 
 	// Через неделю та же новость в ленте — не должна пройти в промпт.
-	next := []Article{{Title: "Яндекс Сим", Link: "https://example.com/1"}}
-	if left := dropPublished(next, got); len(left) != 0 {
+	next := []news.Article{{Title: "Яндекс Сим", Link: "https://example.com/1"}}
+	if left := DropPublished(next, got); len(left) != 0 {
 		t.Fatalf("повтор не отсеян: %+v", left)
 	}
 }

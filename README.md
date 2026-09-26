@@ -30,7 +30,7 @@ Built for the Tree Shield VPN channel; fork and adapt it for your own project.
 ```
 RSS (7 days) → filter → Gemini → HTML body
                               ↓
-                    template (format.go)
+                    template (internal/digest)
                               ↓
               2 DMs (hint + digest)
                               ↓
@@ -139,10 +139,10 @@ Scheduler: `docker run -d --restart unless-stopped --env-file .env treesheild-ne
 
 | What to change | File |
 |----------------|------|
-| RSS feeds and keywords | `rss.go` |
-| Gemini system prompt | `config.go` (`systemPrompt`) |
-| Post header, emoji, layout | `format.go` |
-| Item count, text length limits | `format.go`, `gemini.go` |
+| RSS feeds and keywords | `internal/news/rss.go` |
+| Gemini system prompt | `internal/gemini/gemini.go` (`systemPrompt`) |
+| Post header, emoji, layout | `internal/digest/format.go` |
+| Item count, text length limits | `internal/digest/format.go`, `internal/gemini/gemini.go` |
 
 Custom `<tg-emoji>` IDs only show as animated in a channel when you **paste manually** from a Premium account; the Bot API falls back to standard emoji in channel posts.
 
@@ -156,14 +156,16 @@ make preview  # build and run -preview
 ```
 
 ```
-├── main.go          # CLI, scheduler
-├── config.go        # .env, prompts
-├── rss.go           # feeds and filters
-├── gemini.go        # generation
-├── format.go        # post template
-├── links.go         # source URLs
-├── telegram.go      # DM delivery
-└── deploy/          # systemd + install.sh
+├── cmd/treesheild-newsbot/   # entry point: CLI flags
+├── internal/
+│   ├── app/        # digest pipeline, scheduler, catch-up after downtime
+│   ├── config/     # .env and settings
+│   ├── news/       # RSS feeds and filters
+│   ├── gemini/     # generation and prompts
+│   ├── digest/     # post template, source links, published history
+│   └── telegram/   # DM delivery, button and /digest
+├── assets/         # header image (embedded into the binary)
+└── deploy/         # systemd + install.sh
 ```
 
 ---

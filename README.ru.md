@@ -30,7 +30,7 @@
 ```
 RSS (7 дней) → фильтр → Gemini → HTML-тело
                               ↓
-                    шаблон format.go
+                    шаблон internal/digest
                               ↓
               2 сообщения в личку (подсказка + дайджест)
                               ↓
@@ -139,10 +139,10 @@ docker run --rm --env-file .env treesheild-newsbot -preview
 
 | Что менять | Файл |
 |------------|------|
-| RSS-ленты и ключевые слова | `rss.go` |
-| Промпт для Gemini | `config.go` (`systemPrompt`) |
-| Шапка, эмодзи, оформление поста | `format.go` |
-| Число новостей, длина текста | `format.go`, `gemini.go` |
+| RSS-ленты и ключевые слова | `internal/news/rss.go` |
+| Промпт для Gemini | `internal/gemini/gemini.go` (`systemPrompt`) |
+| Шапка, эмодзи, оформление поста | `internal/digest/format.go` |
+| Число новостей, длина текста | `internal/digest/format.go`, `internal/gemini/gemini.go` |
 
 Кастомные эмодзи в `<tg-emoji>` работают в канале только при **ручной** публикации с Premium-аккаунта; Bot API в каналах показывает обычные fallback-emoji.
 
@@ -158,14 +158,16 @@ make preview  # сборка и -preview
 Структура проекта:
 
 ```
-├── main.go          # CLI, планировщик
-├── config.go        # .env, промпт
-├── rss.go           # ленты и фильтры
-├── gemini.go        # генерация
-├── format.go        # шаблон поста
-├── links.go         # ссылки на источники
-├── telegram.go      # отправка в личку
-└── deploy/          # systemd + install.sh
+├── cmd/treesheild-newsbot/   # точка входа: флаги CLI
+├── internal/
+│   ├── app/        # сборка дайджеста, планировщик, навёрстывание после простоя
+│   ├── config/     # .env и настройки
+│   ├── news/       # ленты и фильтры
+│   ├── gemini/     # генерация и промпты
+│   ├── digest/     # шаблон поста, ссылки на источники, история публикаций
+│   └── telegram/   # отправка в личку, кнопка и /digest
+├── assets/         # картинка-шапка (вшита в бинарник)
+└── deploy/         # systemd + install.sh
 ```
 
 ---

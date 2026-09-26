@@ -3,10 +3,10 @@ APP := treesheild-newsbot
 .PHONY: build build-linux preview run check test clean
 
 build:
-	go build -ldflags "-s -w" -o $(APP) .
+	go build -ldflags "-s -w" -o $(APP) ./cmd/$(APP)
 
 build-linux:
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w" -o $(APP) .
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w" -o $(APP) ./cmd/$(APP)
 
 preview: build
 	./$(APP) -preview
