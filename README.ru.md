@@ -1,9 +1,6 @@
 # Tree Shield NewsBot
 
-[English](README.md) · **Русский**
-
-[![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go&logoColor=white)](https://go.dev/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[English](README.md) · [Русский](README.ru.md)
 
 Автономный бот **пятничного IT-дайджеста** для Telegram: собирает RSS за неделю, генерирует 6 новостей через Google Gemini и присылает готовый HTML-пост **в личку**. В канал публикуете сами — так сохраняются кастомные эмодзи Telegram.
 
@@ -183,13 +180,3 @@ make preview  # сборка и -preview
 ## Лицензия
 
 [MIT](LICENSE) — используйте и изменяйте свободно, с указанием авторства.
-
-<div align="center">
-
----
-
-Если было полезно — поставь ⭐, это очень помогает!
-
-If you found this useful, consider leaving a ⭐ — it helps a lot!
-
-</div>

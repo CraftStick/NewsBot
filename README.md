@@ -1,9 +1,6 @@
 # Tree Shield NewsBot
 
-**English** · [Русский](README.ru.md)
-
-[![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go&logoColor=white)](https://go.dev/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[English](README.md) · [Русский](README.ru.md)
 
 Autonomous **Friday IT digest** bot for Telegram: fetches a week of RSS, generates 6 news items with Google Gemini, and sends a ready-made HTML post to your **DM**. You publish to the channel yourself — that way Telegram custom emoji stay animated.
 
@@ -181,13 +178,3 @@ make preview  # build and run -preview
 ## License
 
 [MIT](LICENSE) — use and modify freely with attribution.
-
-<div align="center">
-
----
-
-Если было полезно — поставь ⭐, это очень помогает!
-
-If you found this useful, consider leaving a ⭐ — it helps a lot!
-
-</div>
