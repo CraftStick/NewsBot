@@ -52,7 +52,7 @@ func Save(path string, r Run) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if _, err := db.Exec(schema); err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func Save(path string, r Run) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	res, err := tx.Exec(`INSERT INTO runs(started_at,duration_s,error,feeds_failed,candidates,digest_html) VALUES(?,?,?,?,?,?)`,
 		r.StartedAt.Format(time.RFC3339), r.Duration.Seconds(), r.Err,

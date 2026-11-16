@@ -146,7 +146,7 @@ func fetchFeed(ctx context.Context, parser *gofeed.Parser, url string) (*gofeed.
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
@@ -495,7 +495,7 @@ func ImageFor(ctx context.Context, a Article) string {
 	if err != nil {
 		return ""
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	b, _ := io.ReadAll(io.LimitReader(resp.Body, 512<<10))
 	m := ogImageRE.FindSubmatch(b)
 	if m == nil {

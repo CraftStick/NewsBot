@@ -2,6 +2,8 @@ module treesheild-newsbot
 
 go 1.26.0
 
+toolchain go1.26.11
+
 require (
 	github.com/go-co-op/gocron/v2 v2.16.1
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1

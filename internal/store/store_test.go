@@ -19,9 +19,9 @@ func TestSaveMarksPublished(t *testing.T) {
 		t.Fatal(err)
 	}
 	db, _ := sql.Open("sqlite", p)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	var n int
-	db.QueryRow(`SELECT COUNT(*) FROM candidates WHERE published=1`).Scan(&n)
+	_ = db.QueryRow(`SELECT COUNT(*) FROM candidates WHERE published=1`).Scan(&n)
 	if n != 1 {
 		t.Fatalf("published=%d, ждали 1", n)
 	}

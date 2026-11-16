@@ -15,10 +15,10 @@ const okFeed = `<?xml version="1.0"?><rss version="2.0"><channel><title>t</title
 
 func TestFetchFeed(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/ok", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(okFeed)) })
+	mux.HandleFunc("/ok", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(okFeed)) })
 	mux.HandleFunc("/403", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(403) })
 	mux.HandleFunc("/endless", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<?xml version="1.0"?><rss version="2.0"><channel>`))
+		_, _ = w.Write([]byte(`<?xml version="1.0"?><rss version="2.0"><channel>`))
 		chunk := []byte(strings.Repeat("x", 64<<10))
 		for r.Context().Err() == nil {
 			if _, err := w.Write(chunk); err != nil {

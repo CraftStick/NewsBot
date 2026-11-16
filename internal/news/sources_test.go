@@ -17,14 +17,14 @@ func TestLoadSources(t *testing.T) {
 		t.Fatal("явно указанный отсутствующий файл должен дать ошибку")
 	}
 	p := filepath.Join(t.TempDir(), "s.json")
-	os.WriteFile(p, []byte(`{"feeds":[{"name":"A","url":"https://a/rss"}],"topic":["vpn"]}`), 0o600)
+	_ = os.WriteFile(p, []byte(`{"feeds":[{"name":"A","url":"https://a/rss"}],"topic":["vpn"]}`), 0o600)
 	if err := LoadSources(p, true); err != nil {
 		t.Fatal(err)
 	}
 	if len(feedSources) != 1 || feedSources[0].Name != "A" || len(topicKeywords) != 1 {
 		t.Fatalf("не применилось: %v %v", feedSources, topicKeywords)
 	}
-	os.WriteFile(p, []byte(`{"feeds":[{"name":"","url":"x"}]}`), 0o600)
+	_ = os.WriteFile(p, []byte(`{"feeds":[{"name":"","url":"x"}]}`), 0o600)
 	if err := LoadSources(p, true); err == nil {
 		t.Fatal("кривая лента должна давать ошибку")
 	}
