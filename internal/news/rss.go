@@ -460,17 +460,18 @@ func FeedNames() []string {
 	return names
 }
 
-// itemImage — картинка из RSS (image / enclosure типа image/*); пусто, если нет.
+// itemImage — обложка из enclosure (у kod.ru тип не указан); SVG пропускаем.
 func itemImage(item *gofeed.Item) string {
-	if item.Image != nil && item.Image.URL != "" {
-		return item.Image.URL
-	}
 	for _, e := range item.Enclosures {
-		if strings.HasPrefix(e.Type, "image/") && e.URL != "" {
+		if e.URL != "" && (e.Type == "" || strings.HasPrefix(e.Type, "image/")) && !isSVG(e.URL) {
 			return e.URL
 		}
 	}
-	return ""
+	return "" // item.Image не берём: у kod.ru там фавиконка сайта; дальше сработает og:image
+}
+
+func isSVG(u string) bool {
+	return strings.HasSuffix(strings.ToLower(strings.SplitN(u, "?", 2)[0]), ".svg")
 }
 
 var ogImageRE = regexp.MustCompile(`(?i)<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']|<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']`)
@@ -501,7 +502,7 @@ func ImageFor(ctx context.Context, a Article) string {
 		return ""
 	}
 	u := html.UnescapeString(string(m[1]) + string(m[2]))
-	if !strings.HasPrefix(u, "http") {
+	if !strings.HasPrefix(u, "http") || isSVG(u) {
 		return ""
 	}
 	return u
