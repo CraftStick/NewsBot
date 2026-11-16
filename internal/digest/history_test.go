@@ -97,11 +97,12 @@ func TestHistoryRoundTrip(t *testing.T) {
 func TestWeekRecap(t *testing.T) {
 	now := time.Now()
 	h := []publishedItem{
-		{Title: "Старое", Link: "https://a/1", SentAt: now.Add(-7 * 24 * time.Hour)},
-		{Title: "Свежее & важное", Link: "https://a/2", SentAt: now.Add(-24 * time.Hour)},
+		{Title: "Старое", Single: true, Link: "https://a/1", SentAt: now.Add(-7 * 24 * time.Hour)},
+		{Title: "Из дайджеста", Link: "https://a/3", SentAt: now},
+		{Title: "Свежее & важное", Single: true, Link: "https://a/2", SentAt: now.Add(-24 * time.Hour)},
 	}
 	got := WeekRecap(h, now)
-	if strings.Contains(got, "Старое") || !strings.Contains(got, "Свежее &amp; важное") {
+	if strings.Contains(got, "Старое") || strings.Contains(got, "Из дайджеста") || !strings.Contains(got, "Свежее &amp; важное") {
 		t.Fatalf("recap: %q", got)
 	}
 	if WeekRecap(nil, now) != "" {

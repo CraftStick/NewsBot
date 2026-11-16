@@ -71,7 +71,7 @@ func RunSingle(cfg config.Config) (err error) {
 	if err := telegram.PublishSinglePreview(cfg, post, postImage(ctx, post, articles)); err != nil {
 		return err
 	}
-	if err := digest.RecordHistory(post, now); err != nil {
+	if err := digest.RecordSingleHistory(post, now); err != nil {
 		log.Printf("не удалось запомнить тему поста: %v", err)
 	}
 	return nil

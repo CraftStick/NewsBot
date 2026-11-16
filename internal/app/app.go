@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-co-op/gocron/v2"
 
@@ -143,7 +144,10 @@ func RunDigest(cfg config.Config) (err error) {
 	}
 
 	run.DigestHTML = newsHTML
-	sendHTML := newsHTML + digest.WeekRecap(history, now) // в историю пишем без итогового блока
+	sendHTML := newsHTML // в историю пишем без итогового блока
+	if r := newsHTML + digest.WeekRecap(history, now); utf8.RuneCountInString(r) <= 3900 {
+		sendHTML = r // иначе не влезем в лимит Telegram
+	}
 	log.Printf("Отправка превью в чат %s…", cfg.TelegramPreviewChatID)
 	if err := telegram.PublishPreview(cfg, sendHTML); err != nil {
 		return err

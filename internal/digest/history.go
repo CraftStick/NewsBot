@@ -29,6 +29,7 @@ type publishedItem struct {
 	Title  string    `json:"title"`
 	Link   string    `json:"link"`
 	SentAt time.Time `json:"sent_at"`
+	Single bool      `json:"single,omitempty"` // одиночный пост (идёт в «Также на неделе»)
 }
 
 func historyFilePath() string {
@@ -71,8 +72,17 @@ func pruneHistory(items []publishedItem, now time.Time) []publishedItem {
 
 // RecordHistory дописывает темы отправленного дайджеста (temp+rename, как
 // и отметка времени в internal/app/state.go).
-func RecordHistory(newsHTML string, now time.Time) error {
-	items := pruneHistory(append(ReadHistory(now), extractPublishedItems(newsHTML, now)...), now)
+func RecordHistory(newsHTML string, now time.Time) error { return record(newsHTML, now, false) }
+
+// RecordSingleHistory — то же для одиночного поста.
+func RecordSingleHistory(post string, now time.Time) error { return record(post, now, true) }
+
+func record(newsHTML string, now time.Time, single bool) error {
+	added := extractPublishedItems(newsHTML, now)
+	for i := range added {
+		added[i].Single = single
+	}
+	items := pruneHistory(append(ReadHistory(now), added...), now)
 	data, err := json.Marshal(items)
 	if err != nil {
 		return err
@@ -200,7 +210,7 @@ func similarToAny(title string, seen []map[string]bool) bool {
 func WeekRecap(history []publishedItem, now time.Time) string {
 	var b strings.Builder
 	for _, it := range history {
-		if it.Link == "" || it.Title == "" || now.Sub(it.SentAt) > 6*24*time.Hour {
+		if !it.Single || it.Link == "" || it.Title == "" || now.Sub(it.SentAt) > 6*24*time.Hour {
 			continue
 		}
 		b.WriteString("\n• <a href=\"" + html.EscapeString(it.Link) + "\">" + html.EscapeString(it.Title) + "</a>")
