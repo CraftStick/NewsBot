@@ -40,6 +40,7 @@ var feedSources = []struct {
 	{Name: "4pda", URL: "https://4pda.to/feed/"},
 	{Name: "IT-World", URL: "https://www.it-world.ru/rss/"},
 	{Name: "Код Дурова", URL: "https://kod.ru/rss"},
+	{Name: "Rozetked", URL: "https://rozetked.me/turbo"}, // RSS отдаётся только на /turbo
 	{Name: "Kaspersky — блог", URL: "https://www.kaspersky.ru/blog/feed/"},
 
 	// ——— Международные ———

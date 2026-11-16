@@ -42,8 +42,11 @@ func RunSingle(cfg config.Config) (err error) {
 	if cfg.SingleSource != "" {
 		var own []news.Article
 		for _, a := range articles {
-			if strings.EqualFold(a.Source, cfg.SingleSource) {
-				own = append(own, a)
+			for _, name := range strings.Split(cfg.SingleSource, ",") {
+				if strings.EqualFold(a.Source, strings.TrimSpace(name)) {
+					own = append(own, a)
+					break
+				}
 			}
 		}
 		articles = own

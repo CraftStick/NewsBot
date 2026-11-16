@@ -22,7 +22,7 @@ type Config struct {
 	GeminiFallbackModel   string
 	CronSchedule          string
 	SingleCron            string // одиночные посты в будни; "" = выключено
-	SingleSource          string // имя ленты для одиночных постов (напр. «Код Дурова»); "" = все
+	SingleSource          string // имя ленты для одиночных постов через запятую (напр. «Код Дурова,Rozetked»); "" = все
 	PublishCmd            string // команда юзербота: JSON на stdin → пост в канал; "" = без кнопки «Опубликовать»
 	Timezone              *time.Location
 	PhotoEnabled          bool
@@ -72,7 +72,7 @@ func Load() (Config, error) {
 			cfg.SingleCron = ""
 		}
 	}
-	cfg.SingleSource = "Код Дурова"
+	cfg.SingleSource = "Код Дурова,Rozetked"
 	if v, ok := os.LookupEnv("SINGLE_SOURCE"); ok {
 		cfg.SingleSource = strings.TrimSpace(v)
 	}
