@@ -31,11 +31,12 @@ async def main():
             if img.startswith("/"):
                 with open(img, "rb") as f:
                     photo = f.read()
-            else:
+            elif img.startswith(("http://", "https://")):  # без file:// и т.п.
                 req = urllib.request.Request(img, headers={"User-Agent": "Mozilla/5.0"})
-                photo = urllib.request.urlopen(req, timeout=15).read()
-            photo = io.BytesIO(photo)
-            photo.name = "photo.jpg"
+                photo = urllib.request.urlopen(req, timeout=15).read(10 << 20)  # ≤10 МБ
+            if photo is not None:
+                photo = io.BytesIO(photo)
+                photo.name = "photo.jpg"
         except Exception as e:
             print("фото не загрузилось, без него:", e, file=sys.stderr)
     if photo and len(text) <= 1024:  # подпись к фото ≤ 1024 символов

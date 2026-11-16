@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -114,9 +115,13 @@ func sweepPending() {
 	}
 }
 
+var publishMu sync.Mutex
+
 // publishPending отдаёт сохранённый пост юзерботу. Файл удаляется только после успеха:
 // повторное нажатие после публикации ничего не отправит.
 func publishPending(cfg config.Config, key string) error {
+	publishMu.Lock() // два быстрых нажатия иначе опубликуют пост дважды
+	defer publishMu.Unlock()
 	if !pendingKeyRE.MatchString(key) {
 		return errors.New("неверный ключ")
 	}

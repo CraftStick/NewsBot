@@ -178,7 +178,7 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 			tc.handlePublish(q)
 			return
 		}
-		if q.Data == cbRegenerateDigest && q.Message != nil {
+		if q.Data == cbRegenerateDigest && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
 			_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, "Запускаю новый дайджест…"))
 			tc.startRegenerate(q.Message.Chat.ID)
 		}
