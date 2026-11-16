@@ -44,6 +44,30 @@ type requestBudget struct {
 	left   int
 	minGap time.Duration
 	last   time.Time
+
+	overloads int  // подряд идущих перегрузок (503/429) за прогон
+	fallback  bool // переключились на запасную модель
+}
+
+// geminiOverloadsBeforeFallback — сколько перегрузок подряд терпим на основной модели.
+const geminiOverloadsBeforeFallback = 2
+
+// model — какую модель использовать сейчас.
+func (b *requestBudget) model(cfg config.Config) string {
+	if b.fallback && cfg.GeminiFallbackModel != "" {
+		return cfg.GeminiFallbackModel
+	}
+	return cfg.GeminiModel
+}
+
+// noteOverload учитывает перегрузку; true — только что перешли на запасную модель.
+func (b *requestBudget) noteOverload(cfg config.Config) bool {
+	b.overloads++
+	if !b.fallback && cfg.GeminiFallbackModel != "" && cfg.GeminiFallbackModel != cfg.GeminiModel && b.overloads >= geminiOverloadsBeforeFallback {
+		b.fallback = true
+		return true
+	}
+	return false
 }
 
 func (b *requestBudget) take(ctx context.Context) error {
@@ -406,7 +430,6 @@ func callGemini(
 		},
 		Temperature:     &temp,
 		MaxOutputTokens: maxOut,
-		ThinkingConfig:  thinkingConfigFor(cfg.GeminiModel),
 	}
 
 	var lastErr error
@@ -421,10 +444,16 @@ func callGemini(
 			return "", "", err
 		}
 
-		result, err := client.Models.GenerateContent(ctx, cfg.GeminiModel, contents, config)
+		model := budget.model(cfg)
+		config.ThinkingConfig = thinkingConfigFor(model)
+		result, err := client.Models.GenerateContent(ctx, model, contents, config)
 		if err != nil {
 			lastErr = fmt.Errorf("generate content: %w", err)
 			if isGeminiRetryable(err) && try < geminiMaxAPIRetries {
+				if budget.noteOverload(cfg) {
+					log.Printf("Gemini API: %v — переключаюсь на запасную модель %s", err, cfg.GeminiFallbackModel)
+					continue
+				}
 				wait := time.Duration(try*try) * time.Second
 				if d := serverRetryDelay(err); d > 0 {
 					wait = d + time.Second // Gemini сам говорит, когда лимит отпустит
@@ -443,6 +472,7 @@ func callGemini(
 			return "", "", lastErr
 		}
 
+		budget.overloads = 0
 		text := strings.TrimSpace(result.Text())
 		reason := genai.FinishReasonUnspecified
 		if len(result.Candidates) > 0 {

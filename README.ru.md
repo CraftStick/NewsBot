@@ -78,6 +78,7 @@ make build
 | `TELEGRAM_PREVIEW_CHAT_ID` | да | — | Ваш числовой chat id |
 | `GEMINI_API_KEY` | да | — | Ключ Gemini API |
 | `GEMINI_MODEL` | нет | `gemini-2.5-flash` | Модель |
+| `GEMINI_FALLBACK_MODEL` | нет | `gemini-2.5-flash-lite` | Запасная модель после 2 перегрузок (503); `off` — выключить |
 | `TZ` | нет | `Europe/Moscow` | Часовой пояс cron |
 | `CRON_SCHEDULE` | нет | `0 18 * * 5` | Пятница 18:00 |
 

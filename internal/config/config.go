@@ -19,6 +19,7 @@ type Config struct {
 	TelegramPreviewChatID string
 	GeminiAPIKey          string
 	GeminiModel           string
+	GeminiFallbackModel   string
 	CronSchedule          string
 	Timezone              *time.Location
 	PhotoEnabled          bool
@@ -48,6 +49,14 @@ func Load() (Config, error) {
 		GeminiAPIKey:          strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),
 		GeminiModel:           strings.TrimSpace(os.Getenv("GEMINI_MODEL")),
 		CronSchedule:          strings.TrimSpace(os.Getenv("CRON_SCHEDULE")),
+	}
+	// Запасная модель на случай перегрузки основной (503); "off" — отключить.
+	cfg.GeminiFallbackModel = "gemini-2.5-flash-lite"
+	if v, ok := os.LookupEnv("GEMINI_FALLBACK_MODEL"); ok {
+		cfg.GeminiFallbackModel = strings.TrimSpace(v)
+		if strings.EqualFold(cfg.GeminiFallbackModel, "off") {
+			cfg.GeminiFallbackModel = ""
+		}
 	}
 	if cfg.GeminiModel == "" {
 		cfg.GeminiModel = "gemini-2.5-flash"

@@ -78,6 +78,7 @@ Copy the **second** message in DM into your channel.
 | `TELEGRAM_PREVIEW_CHAT_ID` | yes | — | Your numeric chat id |
 | `GEMINI_API_KEY` | yes | — | Gemini API key |
 | `GEMINI_MODEL` | no | `gemini-2.5-flash` | Model name |
+| `GEMINI_FALLBACK_MODEL` | no | `gemini-2.5-flash-lite` | Fallback model after 2 overloads (503); `off` disables |
 | `TZ` | no | `Europe/Moscow` | Timezone for cron |
 | `CRON_SCHEDULE` | no | `0 18 * * 5` | Friday 18:00 |
 
