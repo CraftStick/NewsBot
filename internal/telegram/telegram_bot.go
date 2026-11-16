@@ -115,6 +115,18 @@ func NotifyFailure(cfg config.Config, cause error) {
 		"Нажмите кнопку ниже или отправьте /digest, чтобы собрать вручную.")
 }
 
+// NotifyWarning шлёт короткое предупреждение, не прерывая работу.
+func NotifyWarning(cfg config.Config, text string) {
+	tc, err := newTelegramController(cfg)
+	if err != nil {
+		log.Printf("предупреждение не отправлено: %v", err)
+		return
+	}
+	if err := tc.sendHTML(tc.chatID, text, true); err != nil {
+		log.Printf("предупреждение не отправлено: %v", err)
+	}
+}
+
 func (tc *telegramController) startRegenerate(chatID int64) {
 	if !tc.allowed(chatID) {
 		tc.sendPlain(chatID, "Этот бот доступен только владельцу превью.")

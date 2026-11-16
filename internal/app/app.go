@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -72,7 +73,10 @@ func RunDigest(cfg config.Config) error {
 	now := time.Now().In(cfg.Timezone)
 	log.Printf("Сбор новостей за неделю (с %s)…", now.Add(-7*24*time.Hour).Format("02.01.2006"))
 
-	articles, err := news.FetchWeeklyArticles(ctx, now)
+	articles, failed, err := news.FetchWeeklyArticles(ctx, now)
+	if 2*len(failed) >= len(news.FeedNames()) {
+		telegram.NotifyWarning(cfg, fmt.Sprintf("⚠️ Не ответили %d лент: %s", len(failed), strings.Join(failed, ", ")))
+	}
 	if err != nil {
 		return err
 	}

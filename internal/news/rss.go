@@ -137,19 +137,20 @@ func fetchFeedWithRetry(ctx context.Context, parser *gofeed.Parser, url string) 
 	return nil, lastErr
 }
 
-func FetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, error) {
+// FetchWeeklyArticles возвращает статьи и имена лент, которые не ответили.
+func FetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, []string, error) {
 	since := now.Add(-7 * 24 * time.Hour)
 	parser := gofeed.NewParser()
 	parser.Client = httpClient
 	parser.UserAgent = "TreeShieldNewsBot/1.0 (+https://t.me/treeshield)"
-
 	seen := make(map[string]struct{})
 	var out []Article
+	var failed []string
 
 	for _, src := range feedSources {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, failed, ctx.Err()
 		default:
 		}
 
@@ -157,6 +158,7 @@ func FetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, error) 
 		feed, err := fetchFeedWithRetry(ctx, parser, feedURL)
 		if err != nil {
 			log.Printf("RSS %q: пропуск (%v)", src.Name, err)
+			failed = append(failed, src.Name)
 			continue
 		}
 
@@ -209,10 +211,11 @@ func FetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, error) 
 	}
 
 	if len(out) == 0 {
-		return nil, fmt.Errorf("за последние 7 дней не найдено статей по ключевым словам")
+		return nil, failed, fmt.Errorf("за последние 7 дней не найдено статей по ключевым словам")
 	}
 	sortArticlesForPrompt(out)
-	return out, nil
+	log.Printf("RSS: ответили %d из %d лент", len(feedSources)-len(failed), len(feedSources))
+	return out, failed, nil
 }
 
 func RuNewsPriority(title, summary string) int {
@@ -394,4 +397,13 @@ func BuildDigestPrompt(articles []Article, maxItems int) string {
 		b.WriteByte('\n')
 	}
 	return b.String()
+}
+
+// FeedNames — имена всех лент (для подсчёта доли упавших).
+func FeedNames() []string {
+	names := make([]string, len(feedSources))
+	for i, s := range feedSources {
+		names[i] = s.Name
+	}
+	return names
 }
