@@ -18,3 +18,19 @@ func TestPickEmojiID(t *testing.T) {
 		t.Fatalf("id=%s", id)
 	}
 }
+
+func TestPickEmojiNewTopics(t *testing.T) {
+	cases := map[string]string{
+		"Утечка данных клиентов банка":    "5278602437001767574",
+		"МТС расширила сеть":              "5803403369913520877",
+		"Яндекс запустил сервис":          "5291742567321328330",
+		"Google открыла офис в США":       "5222258908529207849",
+		"Роскомнадзор разблокировал сайт": "5278411813468269386",
+		"OpenAI выпустила модель":         "5785346296608988394",
+	}
+	for in, want := range cases {
+		if _, id := PickEmoji(in); id != want {
+			t.Errorf("%q: id=%s, ждали %s", in, id, want)
+		}
+	}
+}
