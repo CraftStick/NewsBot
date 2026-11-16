@@ -17,6 +17,7 @@ import (
 
 	"treesheild-newsbot/internal/app"
 	"treesheild-newsbot/internal/config"
+	"treesheild-newsbot/internal/news"
 	"treesheild-newsbot/internal/telegram"
 )
 
@@ -41,6 +42,13 @@ func main() {
 		log.Fatalf("конфиг: %v", err)
 	}
 
+	srcPath, explicit := os.LookupEnv("SOURCES_FILE")
+	if !explicit {
+		srcPath = "sources.json"
+	}
+	if err := news.LoadSources(srcPath, explicit); err != nil {
+		log.Fatalf("конфиг: %v", err)
+	}
 	log.Printf("Tree Shield NewsBot | TZ=%s | модель=%s | cron=%s",
 		cfg.Timezone, cfg.GeminiModel, cfg.CronSchedule)
 
