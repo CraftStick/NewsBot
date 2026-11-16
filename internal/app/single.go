@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"treesheild-newsbot/internal/config"
@@ -38,6 +39,15 @@ func RunSingle(cfg config.Config) (err error) {
 	}
 	history := digest.ReadHistory(now)
 	articles = digest.DropPublished(articles, history)
+	if cfg.SingleSource != "" {
+		var own []news.Article
+		for _, a := range articles {
+			if strings.EqualFold(a.Source, cfg.SingleSource) {
+				own = append(own, a)
+			}
+		}
+		articles = own
+	}
 	if len(articles) == 0 {
 		return fmt.Errorf("нет свежих неопубликованных статей")
 	}
