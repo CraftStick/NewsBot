@@ -40,7 +40,7 @@ RSS (7 дней) → фильтр → Gemini → HTML-тело
 
 ### Требования
 
-- Go **1.24+**
+- Go **1.26+**
 - Токен Telegram-бота ([@BotFather](https://t.me/BotFather))
 - API-ключ [Google AI Studio](https://aistudio.google.com/apikey)
 

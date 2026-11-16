@@ -1,4 +1,4 @@
-"""Юзербот-публикатор: JSON {"html", "emoji_id"} со stdin → пост в канал с анимированным эмодзи.
+"""Юзербот-публикатор: JSON {"html", "emoji_id", "image"} со stdin → пост в канал с анимированным эмодзи.
 Env: TELEGRAM_API_ID, TELEGRAM_API_HASH, PUB_SESSION (путь к .session), PUB_CHANNEL.
 `python publish.py --login` — разовый вход (номер, код, 2FA) в терминале."""
 import asyncio, io, json, os, sys, urllib.request
@@ -29,7 +29,8 @@ async def main():
     if img:
         try:
             if img.startswith("/"):
-                photo = open(img, "rb").read()
+                with open(img, "rb") as f:
+                    photo = f.read()
             else:
                 req = urllib.request.Request(img, headers={"User-Agent": "Mozilla/5.0"})
                 photo = urllib.request.urlopen(req, timeout=15).read()

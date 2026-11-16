@@ -3,6 +3,7 @@ package telegram
 import (
 	"os"
 	"path/filepath"
+	"time"
 	"strings"
 	"testing"
 
@@ -79,5 +80,23 @@ func TestSetPublishButtonDigest(t *testing.T) {
 	}
 	if m, _ := filepath.Glob("pending/*"); len(m) != 0 {
 		t.Fatalf("остались файлы: %v", m)
+	}
+}
+
+func TestSweepPending(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if _, err := savePending("old", "", ""); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Now().Add(-8 * 24 * time.Hour)
+	files, _ := filepath.Glob(filepath.Join(pendingDir, "*"))
+	for _, f := range files {
+		_ = os.Chtimes(f, old, old)
+	}
+	if _, err := savePending("new", "", ""); err != nil {
+		t.Fatal(err)
+	}
+	if files, _ := filepath.Glob(filepath.Join(pendingDir, "*")); len(files) != 1 {
+		t.Fatalf("ждали 1 свежую заготовку, есть %v", files)
 	}
 }

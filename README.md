@@ -40,7 +40,7 @@ RSS (7 days) → filter → Gemini → HTML body
 
 ### Requirements
 
-- Go **1.24+**
+- Go **1.26+**
 - Telegram bot token ([@BotFather](https://t.me/BotFather))
 - [Google AI Studio](https://aistudio.google.com/apikey) API key
 

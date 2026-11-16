@@ -77,8 +77,8 @@ func StartScheduler(cfg config.Config) (gocron.Scheduler, error) {
 		}
 	}
 	scheduler.Start()
-	log.Printf("Планировщик: cron=%q (%s) → личка %s. Кнопка /digest в боте. Ctrl+C — выход.",
-		cfg.CronSchedule, cfg.Timezone, cfg.TelegramPreviewChatID)
+	log.Printf("Планировщик: дайджест cron=%q, посты cron=%q (%s) → личка %s. Команды /digest и /post в боте. Ctrl+C — выход.",
+		cfg.CronSchedule, cfg.SingleCron, cfg.Timezone, cfg.TelegramPreviewChatID)
 	return scheduler, nil
 }
 

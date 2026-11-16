@@ -3,26 +3,29 @@ package telegram
 import (
 	"bytes"
 	"context"
-	"errors"
-	"fmt"
-	"log"
-	"os/exec"
-	"time"
-
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"errors"
+	"fmt"
+	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
 	"treesheild-newsbot/assets"
 	"treesheild-newsbot/internal/config"
 )
 
-var headingNumRE = regexp.MustCompile(`^<b>\s*\d{1,2}\.\s*`)
+var (
+	headingNumRE = regexp.MustCompile(`^<b>\s*\d{1,2}\.\s*`)
+	pendingKeyRE = regexp.MustCompile(`^[0-9a-f]{16}$`)
+)
 
 // PublishSinglePreview шлёт одиночный пост ТОЛЬКО в личку на проверку. В канал
 // он уходит лишь по кнопке «Опубликовать» (юзербот, PUBLISH_CMD) или копированием вручную.
@@ -97,13 +100,24 @@ func savePending(html, emojiID, image string) (string, error) {
 	if err := os.MkdirAll(pendingDir, 0o700); err != nil {
 		return "", err
 	}
+	sweepPending()
 	return key, os.WriteFile(filepath.Join(pendingDir, key+".json"), b, 0o600)
+}
+
+// sweepPending удаляет заготовки старше недели: неопубликованные превью иначе копятся вечно.
+func sweepPending() {
+	files, _ := filepath.Glob(filepath.Join(pendingDir, "*"))
+	for _, f := range files {
+		if st, err := os.Stat(f); err == nil && time.Since(st.ModTime()) > 7*24*time.Hour {
+			_ = os.Remove(f)
+		}
+	}
 }
 
 // publishPending отдаёт сохранённый пост юзерботу. Файл удаляется только после успеха:
 // повторное нажатие после публикации ничего не отправит.
 func publishPending(cfg config.Config, key string) error {
-	if !regexp.MustCompile(`^[0-9a-f]{16}$`).MatchString(key) {
+	if !pendingKeyRE.MatchString(key) {
 		return errors.New("неверный ключ")
 	}
 	path := filepath.Join(pendingDir, key+".json")
@@ -120,7 +134,7 @@ func publishPending(cfg config.Config, key string) error {
 	}
 	var p pendingPost
 	if json.Unmarshal(b, &p) == nil && strings.HasPrefix(p.Image, "/") {
-		os.Remove(p.Image) // локальная шапка дайджеста
+		_ = os.Remove(p.Image) // локальная шапка дайджеста
 	}
 	return os.Remove(path)
 }

@@ -24,9 +24,6 @@ func lastMissedSlot(sched cron.Schedule, since, now time.Time) (time.Time, bool)
 	for t := sched.Next(since); !t.After(now); t = sched.Next(t) {
 		last = t
 		found = true
-		if found && now.Sub(last) < 0 {
-			break // защита от неожиданностей парсера
-		}
 	}
 	return last, found
 }

@@ -33,8 +33,7 @@ func readDigestSent(loc *time.Location) (time.Time, bool) {
 	return t.In(loc), true
 }
 
-// recordDigestSent фиксирует момент успешной отправки. Ошибку только логировать
-// не нужно — вызывающий сам решает; здесь просто пишем атомарно через temp+rename.
+// recordDigestSent фиксирует момент успешной отправки (атомарно: temp + rename).
 func recordDigestSent(t time.Time) error {
 	path := stateFilePath()
 	tmp := path + ".tmp"
