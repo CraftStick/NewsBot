@@ -4,10 +4,12 @@ package news
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -122,10 +124,35 @@ const (
 
 var httpClient = &http.Client{Timeout: 90 * time.Second}
 
+const (
+	feedTimeout  = 25 * time.Second // на одну попытку одной ленты
+	feedMaxBytes = 5 << 20          // больше RSS-лента быть не должна
+	feedWorkers  = 6
+)
+
+func fetchFeed(ctx context.Context, parser *gofeed.Parser, url string) (*gofeed.Feed, error) {
+	ctx, cancel := context.WithTimeout(ctx, feedTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", parser.UserAgent)
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	return parser.Parse(io.LimitReader(resp.Body, feedMaxBytes))
+}
+
 func fetchFeedWithRetry(ctx context.Context, parser *gofeed.Parser, url string) (*gofeed.Feed, error) {
 	var lastErr error
 	for attempt := 1; attempt <= rssFetchAttempts; attempt++ {
-		feed, err := parser.ParseURLWithContext(url, ctx)
+		feed, err := fetchFeed(ctx, parser, url)
 		if err == nil {
 			return feed, nil
 		}
@@ -135,6 +162,29 @@ func fetchFeedWithRetry(ctx context.Context, parser *gofeed.Parser, url string) 
 		}
 	}
 	return nil, lastErr
+}
+
+type feedResult struct {
+	feed *gofeed.Feed
+	err  error
+}
+
+// fetchAllFeeds качает все ленты параллельно; результаты в порядке feedSources.
+func fetchAllFeeds(ctx context.Context, parser *gofeed.Parser) []feedResult {
+	res := make([]feedResult, len(feedSources))
+	sem := make(chan struct{}, feedWorkers)
+	var wg sync.WaitGroup
+	for i, src := range feedSources {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			res[i].feed, res[i].err = fetchFeedWithRetry(ctx, parser, googleNewsWhen7dURL(src.URL))
+		}()
+	}
+	wg.Wait()
+	return res
 }
 
 // FetchWeeklyArticles возвращает статьи и имена лент, которые не ответили.
@@ -147,15 +197,12 @@ func FetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, []strin
 	var out []Article
 	var failed []string
 
-	for _, src := range feedSources {
-		select {
-		case <-ctx.Done():
-			return nil, failed, ctx.Err()
-		default:
-		}
-
-		feedURL := googleNewsWhen7dURL(src.URL)
-		feed, err := fetchFeedWithRetry(ctx, parser, feedURL)
+	results := fetchAllFeeds(ctx, parser)
+	if ctx.Err() != nil {
+		return nil, failed, ctx.Err()
+	}
+	for i, src := range feedSources {
+		feed, err := results[i].feed, results[i].err
 		if err != nil {
 			log.Printf("RSS %q: пропуск (%v)", src.Name, err)
 			failed = append(failed, src.Name)
