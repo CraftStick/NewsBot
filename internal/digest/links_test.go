@@ -56,3 +56,11 @@ func TestEnsureNewsLinksNoRandomFallback(t *testing.T) {
 		t.Fatalf("подставлена случайная статья: %s", got)
 	}
 }
+
+func TestTitleMatchScoreNeedsCoverage(t *testing.T) {
+	q := normalizeTitle("Проверка работы VPN-сервисов")
+	a := normalizeTitle("Apple закроет форум поддержки: он работал с 1998 года, сервисов больше не будет")
+	if s := titleMatchScore(q, a); s >= minLinkScore {
+		t.Fatalf("случайное совпадение прошло: %d", s)
+	}
+}

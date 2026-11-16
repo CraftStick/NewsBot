@@ -73,17 +73,29 @@ func titleMatchScore(a, b string) int {
 	if len(aw) == 0 || len(bw) == 0 {
 		return 0
 	}
-	common := 0
+	common, sigA := 0, 0
 	for _, w := range aw {
 		if len([]rune(w)) < 3 {
 			continue
 		}
+		sigA++
 		for _, w2 := range bw {
 			if sameStem(w, w2) {
 				common++
 				break
 			}
 		}
+	}
+	sigB := 0
+	for _, w := range bw {
+		if len([]rune(w)) >= 3 {
+			sigB++
+		}
+	}
+	// Общие слова должны покрывать хотя бы половину более короткой строки,
+	// иначе совпали случайные «работы/сервисов» из разных историй.
+	if common*2 < min(sigA, sigB) {
+		return 0
 	}
 	return common * 12
 }
