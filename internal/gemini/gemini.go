@@ -30,9 +30,6 @@ const (
 	// Пакет (2 попытки) + поштучный режим (минимум 6) + запас на повторы. При
 	// 4 пакетных попытках и бюджете 8 поштучный режим не мог завершиться вообще.
 	geminiRunRequestBudget = 10
-	// geminiMinRequestGap — пауза между запросами: бесплатный тариф пускает
-	// 5 запросов в минуту, и пачка быстрых повторов упиралась в него.
-	geminiMinRequestGap = 13 * time.Second
 	// geminiMaxRetryWait — потолок ожидания перед повтором, даже если Gemini
 	// просит дольше: прогон ограничен 8 минутами.
 	geminiMaxRetryWait = 65 * time.Second
@@ -108,6 +105,15 @@ func thinkingConfigFor(model string) *genai.ThinkingConfig {
 	}
 	zero := int32(0)
 	return &genai.ThinkingConfig{ThinkingBudget: &zero}
+}
+
+// geminiMinRequestGap — пауза между запросами: бесплатный тариф пускает
+// 5 запросов в минуту, и пачка быстрых повторов упиралась в него. var — чтобы тесты не ждали.
+var geminiMinRequestGap = 13 * time.Second
+
+// generate — шов для тестов: подменяется заглушкой вместо живого Gemini.
+var generate = func(ctx context.Context, c *genai.Client, model string, contents []*genai.Content, cfg *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
+	return c.Models.GenerateContent(ctx, model, contents, cfg)
 }
 
 var singleNewsNumRE = regexp.MustCompile(`<b>\s*\d{1,2}\.\s`)
@@ -446,7 +452,7 @@ func callGemini(
 
 		model := budget.model(cfg)
 		config.ThinkingConfig = thinkingConfigFor(model)
-		result, err := client.Models.GenerateContent(ctx, model, contents, config)
+		result, err := generate(ctx, client, model, contents, config)
 		if err != nil {
 			lastErr = fmt.Errorf("generate content: %w", err)
 			if isGeminiRetryable(err) && try < geminiMaxAPIRetries {
