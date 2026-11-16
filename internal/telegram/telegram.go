@@ -9,7 +9,11 @@ import (
 	"treesheild-newsbot/internal/digest"
 )
 
-func PublishPreview(cfg config.Config, newsBody string) error {
+// PublishPreview шлёт превью дайджеста. photo — обложка дайджеста; nil — стандартная.
+func PublishPreview(cfg config.Config, newsBody string, photo []byte) error {
+	if len(photo) == 0 {
+		photo = assets.NewsPhoto
+	}
 	tc, err := newTelegramController(cfg)
 	if err != nil {
 		return err
@@ -25,8 +29,8 @@ func PublishPreview(cfg config.Config, newsBody string) error {
 	// Фото с дайджестом в подписи (одним сообщением, при необходимости текст ужимается).
 	if cfg.PhotoEnabled {
 		if caption, ok := digest.AssembleDigestForCaption(newsBody); ok {
-			tc.setPublishButton(caption, true)
-			if err := tc.sendPhotoCaption(tc.chatID, assets.NewsPhoto, caption); err != nil {
+			tc.setPublishButton(caption, photo)
+			if err := tc.sendPhotoCaption(tc.chatID, photo, caption); err != nil {
 				return err
 			}
 			log.Printf("Превью отправлено (подсказка + фото с дайджестом)")
@@ -34,7 +38,7 @@ func PublishPreview(cfg config.Config, newsBody string) error {
 		}
 		// Не влезло даже после сжатия — фото отдельно, полный текст следом.
 		log.Printf("Дайджест не помещается в подпись, шлю фото + текст раздельно")
-		if err := tc.sendPhotoCaption(tc.chatID, assets.NewsPhoto, ""); err != nil {
+		if err := tc.sendPhotoCaption(tc.chatID, photo, ""); err != nil {
 			return err
 		}
 	}
@@ -43,7 +47,11 @@ func PublishPreview(cfg config.Config, newsBody string) error {
 	if n := len([]rune(full)); n > digest.TelegramMaxMessage {
 		return fmt.Errorf("дайджест слишком длинный (%d симв., лимит %d)", n, digest.TelegramMaxMessage)
 	}
-	tc.setPublishButton(full, cfg.PhotoEnabled)
+	var pub []byte
+	if cfg.PhotoEnabled {
+		pub = photo
+	}
+	tc.setPublishButton(full, pub)
 	if err := tc.sendHTML(tc.chatID, full, false); err != nil {
 		return err
 	}

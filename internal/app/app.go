@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -149,7 +150,7 @@ func RunDigest(cfg config.Config) (err error) {
 		sendHTML = r // иначе не влезем в лимит Telegram
 	}
 	log.Printf("Отправка превью в чат %s…", cfg.TelegramPreviewChatID)
-	if err := telegram.PublishPreview(cfg, sendHTML); err != nil {
+	if err := telegram.PublishPreview(cfg, sendHTML, digestPhoto(ctx, newsHTML, articles)); err != nil {
 		return err
 	}
 	if err := recordDigestSent(now); err != nil {
@@ -157,6 +158,26 @@ func RunDigest(cfg config.Config) (err error) {
 	}
 	if err := digest.RecordHistory(newsHTML, now); err != nil {
 		log.Printf("не удалось запомнить темы дайджеста: %v", err)
+	}
+	return nil
+}
+
+// digestPhoto — обложка дайджеста: первая статья kod.ru из дайджеста, иначе первая
+// с картинкой; nil — тогда стандартная. Порядок пунктов = важность, ищем сверху вниз.
+func digestPhoto(ctx context.Context, html string, articles []news.Article) []byte {
+	var linked []news.Article
+	for _, a := range articles {
+		if a.Link != "" && strings.Contains(html, a.Link) {
+			linked = append(linked, a)
+		}
+	}
+	sort.SliceStable(linked, func(i, j int) bool {
+		return strings.Contains(linked[i].Link, "kod.ru") && !strings.Contains(linked[j].Link, "kod.ru")
+	})
+	for _, a := range linked {
+		if b := news.DownloadImage(ctx, news.ImageFor(ctx, a)); b != nil {
+			return b
+		}
 	}
 	return nil
 }

@@ -507,3 +507,30 @@ func ImageFor(ctx context.Context, a Article) string {
 	}
 	return u
 }
+
+// DownloadImage скачивает картинку (≤10 МБ); nil при любой ошибке или не-картинке.
+func DownloadImage(ctx context.Context, u string) []byte {
+	if !strings.HasPrefix(u, "http") {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK || !strings.HasPrefix(resp.Header.Get("Content-Type"), "image/") {
+		return nil
+	}
+	b, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil || len(b) == 0 {
+		return nil
+	}
+	return b
+}

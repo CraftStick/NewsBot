@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"treesheild-newsbot/assets"
 
 	"treesheild-newsbot/internal/config"
 )
@@ -67,7 +68,7 @@ func TestPublishPending(t *testing.T) {
 func TestSetPublishButtonDigest(t *testing.T) {
 	t.Chdir(t.TempDir())
 	tc := &telegramController{cfg: config.Config{PublishCmd: "cat > got.json"}}
-	tc.setPublishButton("<b>d</b>", true)
+	tc.setPublishButton("<b>d</b>", assets.NewsPhoto)
 	if tc.publishKB == nil {
 		t.Fatal("кнопки нет")
 	}

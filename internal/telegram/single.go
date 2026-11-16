@@ -19,7 +19,6 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
-	"treesheild-newsbot/assets"
 	"treesheild-newsbot/internal/config"
 )
 
@@ -58,16 +57,16 @@ func PublishSinglePreview(cfg config.Config, post, image string) error {
 
 // setPublishButton сохраняет дайджест и включает кнопку «Опубликовать» на следующем
 // сообщении. Без PUBLISH_CMD или при ошибке записи кнопки нет (публикуют вручную).
-func (tc *telegramController) setPublishButton(html string, withHeaderPhoto bool) {
+func (tc *telegramController) setPublishButton(html string, photo []byte) {
 	if tc.cfg.PublishCmd == "" {
 		return
 	}
 	image := ""
-	if withHeaderPhoto {
+	if len(photo) > 0 {
 		sum := sha1.Sum([]byte(html))
 		path, err := filepath.Abs(filepath.Join(pendingDir, hex.EncodeToString(sum[:8])+".jpg"))
 		if err == nil && os.MkdirAll(pendingDir, 0o700) == nil &&
-			os.WriteFile(path, assets.NewsPhoto, 0o600) == nil {
+			os.WriteFile(path, photo, 0o600) == nil {
 			image = path
 		}
 	}
