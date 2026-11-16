@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -43,7 +44,7 @@ func TestPickEmojiNewTopics(t *testing.T) {
 
 func TestPublishPending(t *testing.T) {
 	t.Chdir(t.TempDir())
-	key, err := savePending("<b>x</b>", "123")
+	key, err := savePending("<b>x</b>", "123", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,5 +60,24 @@ func TestPublishPending(t *testing.T) {
 	}
 	if publishPending(cfg, "../x") == nil {
 		t.Fatal("ключ не проверен")
+	}
+}
+
+func TestSetPublishButtonDigest(t *testing.T) {
+	t.Chdir(t.TempDir())
+	tc := &telegramController{cfg: config.Config{PublishCmd: "cat > got.json"}}
+	tc.setPublishButton("<b>d</b>", true)
+	if tc.publishKB == nil {
+		t.Fatal("кнопки нет")
+	}
+	key := strings.TrimPrefix(*tc.publishKB.InlineKeyboard[0][0].CallbackData, cbPublish)
+	if err := publishPending(tc.cfg, key); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile("got.json"); !strings.Contains(string(b), `"image":"/`) {
+		t.Fatalf("нет пути к шапке: %s", b)
+	}
+	if m, _ := filepath.Glob("pending/*"); len(m) != 0 {
+		t.Fatalf("остались файлы: %v", m)
 	}
 }

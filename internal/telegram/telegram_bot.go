@@ -25,7 +25,8 @@ type telegramController struct {
 	bot        *tgbotapi.BotAPI
 	chatID     int64
 	mu         sync.Mutex
-	regenerate func() error // пересборка дайджеста по кнопке и /digest
+	regenerate func() error                   // пересборка дайджеста по кнопке и /digest
+	publishKB  *tgbotapi.InlineKeyboardMarkup // кнопка «Опубликовать» для следующего сообщения
 }
 
 func newTelegramController(cfg config.Config) (*telegramController, error) {
@@ -61,6 +62,8 @@ func (tc *telegramController) sendHTML(chatID int64, html string, withRegenerate
 	msg.DisableWebPagePreview = true
 	if withRegenerateBtn {
 		msg.ReplyMarkup = regenerateKeyboard()
+	} else if tc.publishKB != nil {
+		msg.ReplyMarkup = *tc.publishKB
 	}
 	sent, err := tc.bot.Send(msg)
 	if err != nil {
@@ -76,6 +79,9 @@ func (tc *telegramController) sendPhotoCaption(chatID int64, photo []byte, htmlC
 	if htmlCaption != "" {
 		msg.ParseMode = tgbotapi.ModeHTML
 		msg.Caption = htmlCaption
+	}
+	if htmlCaption != "" && tc.publishKB != nil {
+		msg.ReplyMarkup = *tc.publishKB
 	}
 	sent, err := tc.bot.Send(msg)
 	if err != nil {

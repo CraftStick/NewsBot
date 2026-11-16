@@ -4,9 +4,11 @@ package news
 import (
 	"context"
 	"fmt"
+	"html"
 	"io"
 	"log"
 	"net/http"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -56,6 +58,7 @@ type Article struct {
 	PublishedAt time.Time
 	RUPriority  int // выше = приоритетнее для дайджеста про РФ
 	Relevance   int // relevanceTopic / relevanceEntity
+	Image       string
 }
 
 // topicKeywords — однозначная суть дайджеста: доступ, приватность,
@@ -254,6 +257,7 @@ func FetchWeeklyArticles(ctx context.Context, now time.Time) ([]Article, []strin
 				PublishedAt: pub,
 				RUPriority:  RuNewsPriority(title, summary),
 				Relevance:   relevance,
+				Image:       itemImage(item),
 			})
 		}
 	}
@@ -454,4 +458,51 @@ func FeedNames() []string {
 		names[i] = s.Name
 	}
 	return names
+}
+
+// itemImage — картинка из RSS (image / enclosure типа image/*); пусто, если нет.
+func itemImage(item *gofeed.Item) string {
+	if item.Image != nil && item.Image.URL != "" {
+		return item.Image.URL
+	}
+	for _, e := range item.Enclosures {
+		if strings.HasPrefix(e.Type, "image/") && e.URL != "" {
+			return e.URL
+		}
+	}
+	return ""
+}
+
+var ogImageRE = regexp.MustCompile(`(?i)<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']|<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']`)
+
+// ImageFor возвращает картинку статьи: из RSS, иначе og:image страницы. Пусто при любой ошибке.
+func ImageFor(ctx context.Context, a Article) string {
+	if a.Image != "" {
+		return a.Image
+	}
+	if a.Link == "" {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.Link, nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(io.LimitReader(resp.Body, 512<<10))
+	m := ogImageRE.FindSubmatch(b)
+	if m == nil {
+		return ""
+	}
+	u := html.UnescapeString(string(m[1]) + string(m[2]))
+	if !strings.HasPrefix(u, "http") {
+		return ""
+	}
+	return u
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os/exec"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"regexp"
 	"strings"
 
+	"treesheild-newsbot/assets"
 	"treesheild-newsbot/internal/config"
 )
 
@@ -24,7 +26,7 @@ var headingNumRE = regexp.MustCompile(`^<b>\s*\d{1,2}\.\s*`)
 
 // PublishSinglePreview шлёт одиночный пост ТОЛЬКО в личку на проверку. В канал
 // он уходит лишь по кнопке «Опубликовать» (юзербот, PUBLISH_CMD) или копированием вручную.
-func PublishSinglePreview(cfg config.Config, post string) error {
+func PublishSinglePreview(cfg config.Config, post, image string) error {
 	tc, err := newTelegramController(cfg)
 	if err != nil {
 		return err
@@ -37,7 +39,7 @@ func PublishSinglePreview(cfg config.Config, post string) error {
 		return tc.sendHTML(tc.chatID, html, false)
 	}
 	_, id := PickEmoji(html)
-	key, err := savePending(html, id)
+	key, err := savePending(html, id, image)
 	if err != nil {
 		return err
 	}
@@ -50,6 +52,31 @@ func PublishSinglePreview(cfg config.Config, post string) error {
 	return err
 }
 
+// setPublishButton сохраняет дайджест и включает кнопку «Опубликовать» на следующем
+// сообщении. Без PUBLISH_CMD или при ошибке записи кнопки нет (публикуют вручную).
+func (tc *telegramController) setPublishButton(html string, withHeaderPhoto bool) {
+	if tc.cfg.PublishCmd == "" {
+		return
+	}
+	image := ""
+	if withHeaderPhoto {
+		sum := sha1.Sum([]byte(html))
+		path, err := filepath.Abs(filepath.Join(pendingDir, hex.EncodeToString(sum[:8])+".jpg"))
+		if err == nil && os.MkdirAll(pendingDir, 0o700) == nil &&
+			os.WriteFile(path, assets.NewsPhoto, 0o600) == nil {
+			image = path
+		}
+	}
+	key, err := savePending(html, "", image)
+	if err != nil {
+		log.Printf("кнопка публикации не создана: %v", err)
+		return
+	}
+	kb := tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("📣 Опубликовать в канал", cbPublish+key)))
+	tc.publishKB = &kb
+}
+
 const (
 	cbPublish  = "pub:"
 	pendingDir = "pending"
@@ -58,14 +85,15 @@ const (
 type pendingPost struct {
 	HTML    string `json:"html"`
 	EmojiID string `json:"emoji_id"`
+	Image   string `json:"image,omitempty"`
 }
 
 // savePending кладёт пост на диск под коротким ключом: callback_data ≤ 64 байт,
 // а кнопку может нажать другой процесс, чем отправивший превью.
-func savePending(html, emojiID string) (string, error) {
+func savePending(html, emojiID, image string) (string, error) {
 	sum := sha1.Sum([]byte(html))
 	key := hex.EncodeToString(sum[:8])
-	b, _ := json.Marshal(pendingPost{html, emojiID})
+	b, _ := json.Marshal(pendingPost{html, emojiID, image})
 	if err := os.MkdirAll(pendingDir, 0o700); err != nil {
 		return "", err
 	}
@@ -89,6 +117,10 @@ func publishPending(cfg config.Config, key string) error {
 	cmd.Stdin = bytes.NewReader(b)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("юзербот: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	var p pendingPost
+	if json.Unmarshal(b, &p) == nil && strings.HasPrefix(p.Image, "/") {
+		os.Remove(p.Image) // локальная шапка дайджеста
 	}
 	return os.Remove(path)
 }

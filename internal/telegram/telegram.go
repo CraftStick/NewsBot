@@ -25,6 +25,7 @@ func PublishPreview(cfg config.Config, newsBody string) error {
 	// Фото с дайджестом в подписи (одним сообщением, при необходимости текст ужимается).
 	if cfg.PhotoEnabled {
 		if caption, ok := digest.AssembleDigestForCaption(newsBody); ok {
+			tc.setPublishButton(caption, true)
 			if err := tc.sendPhotoCaption(tc.chatID, assets.NewsPhoto, caption); err != nil {
 				return err
 			}
@@ -42,6 +43,7 @@ func PublishPreview(cfg config.Config, newsBody string) error {
 	if n := len([]rune(full)); n > digest.TelegramMaxMessage {
 		return fmt.Errorf("дайджест слишком длинный (%d симв., лимит %d)", n, digest.TelegramMaxMessage)
 	}
+	tc.setPublishButton(full, cfg.PhotoEnabled)
 	if err := tc.sendHTML(tc.chatID, full, false); err != nil {
 		return err
 	}

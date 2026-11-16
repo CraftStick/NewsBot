@@ -65,11 +65,21 @@ func RunSingle(cfg config.Config) (err error) {
 		return err
 	}
 	run.DigestHTML = post
-	if err := telegram.PublishSinglePreview(cfg, post); err != nil {
+	if err := telegram.PublishSinglePreview(cfg, post, postImage(ctx, post, articles)); err != nil {
 		return err
 	}
 	if err := digest.RecordHistory(post, now); err != nil {
 		log.Printf("не удалось запомнить тему поста: %v", err)
 	}
 	return nil
+}
+
+// postImage — картинка статьи, на которую ссылается пост; пусто, если не нашли.
+func postImage(ctx context.Context, post string, articles []news.Article) string {
+	for _, a := range articles {
+		if a.Link != "" && strings.Contains(post, a.Link) {
+			return news.ImageFor(ctx, a)
+		}
+	}
+	return ""
 }
