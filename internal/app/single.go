@@ -60,6 +60,10 @@ func RunSingle(cfg config.Config) (err error) {
 	if err != nil {
 		return err
 	}
+	// Ссылка должна вести на статью из ленты: подстановка «любой свободной» даёт пост не про ту новость.
+	if linkedArticle(post, articles) == nil {
+		return fmt.Errorf("пост не опирается на статью ленты, пропускаю")
+	}
 	post = digest.EnsureNewsLinks(post, articles)
 	if err := digest.ValidateSingleLink(post); err != nil {
 		return err
@@ -76,10 +80,17 @@ func RunSingle(cfg config.Config) (err error) {
 
 // postImage — картинка статьи, на которую ссылается пост; пусто, если не нашли.
 func postImage(ctx context.Context, post string, articles []news.Article) string {
-	for _, a := range articles {
-		if a.Link != "" && strings.Contains(post, a.Link) {
-			return news.ImageFor(ctx, a)
-		}
+	if a := linkedArticle(post, articles); a != nil {
+		return news.ImageFor(ctx, *a)
 	}
 	return ""
+}
+
+func linkedArticle(post string, articles []news.Article) *news.Article {
+	for i, a := range articles {
+		if a.Link != "" && strings.Contains(post, a.Link) {
+			return &articles[i]
+		}
+	}
+	return nil
 }
