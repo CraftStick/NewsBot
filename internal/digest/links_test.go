@@ -40,3 +40,11 @@ First foreign privacy story sentence here today. Second sentence adds internatio
 		}
 	}
 }
+
+func TestEnsureSingleLinkRejectsUnrelated(t *testing.T) {
+	arts := []news.Article{{Title: "Tesla Cybercab личное использование", Link: "https://kod.ru/tesla"}}
+	post := "🚫 <b>Роскомнадзор внедряет ИИ для блокировки VPN</b>\nРКН тестирует нейросеть для поиска VPN-трафика."
+	if _, err := EnsureSingleLink(post, arts); err == nil {
+		t.Fatal("ожидалась ошибка: пост не про статью ленты")
+	}
+}

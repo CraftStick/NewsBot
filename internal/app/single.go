@@ -60,11 +60,10 @@ func RunSingle(cfg config.Config) (err error) {
 	if err != nil {
 		return err
 	}
-	// Ссылка должна вести на статью из ленты: подстановка «любой свободной» даёт пост не про ту новость.
-	if linkedArticle(post, articles) == nil {
-		return fmt.Errorf("пост не опирается на статью ленты, пропускаю")
+	post, err = digest.EnsureSingleLink(post, articles)
+	if err != nil {
+		return err
 	}
-	post = digest.EnsureNewsLinks(post, articles)
 	if err := digest.ValidateSingleLink(post); err != nil {
 		return err
 	}
