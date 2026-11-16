@@ -114,8 +114,8 @@ func RunDigest(cfg config.Config) (err error) {
 		articles = fresh
 	}
 
-	// kod.ru — основной источник (самые свежие новости), остальные ленты — резерв.
-	sort.SliceStable(articles, func(i, j int) bool { return isKod(articles[i]) && !isKod(articles[j]) })
+	// kod.ru и Rozetked — основные источники, остальные ленты — резерв.
+	sort.SliceStable(articles, func(i, j int) bool { return isMain(articles[i]) && !isMain(articles[j]) })
 	run.Candidates = articles
 	pool := news.ArticlesForPrompt(articles)
 	log.Printf("Запрос к Gemini (~%d симв., %d статей)…", len(news.BuildDigestPrompt(articles, 0)), len(pool))
@@ -145,6 +145,8 @@ func RunDigest(cfg config.Config) (err error) {
 }
 
 func isKod(a news.Article) bool { return strings.Contains(a.Link, "kod.ru") }
+
+func isMain(a news.Article) bool { return isKod(a) || strings.Contains(a.Link, "rozetked.me") }
 
 // digestPhoto — обложка дайджеста: картинка первой статьи kod.ru из дайджеста;
 // nil — тогда стандартная (чужие источники не берём). Порядок пунктов = важность.
