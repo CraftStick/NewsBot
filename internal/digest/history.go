@@ -109,18 +109,20 @@ func DropPublished(articles []news.Article, history []publishedItem) []news.Arti
 	}
 	links := make(map[string]bool, len(history))
 	titles := make(map[string]bool, len(history))
+	seen := make([]map[string]bool, 0, len(history))
 	for _, it := range history {
 		if l := normalizeLink(it.Link); l != "" {
 			links[l] = true
 		}
 		if t := normalizeTitle(it.Title); t != "" {
 			titles[t] = true
+			seen = append(seen, titleStems(t))
 		}
 	}
 
 	out := make([]news.Article, 0, len(articles))
 	for _, a := range articles {
-		if links[normalizeLink(a.Link)] || titles[normalizeTitle(a.Title)] {
+		if links[normalizeLink(a.Link)] || titles[normalizeTitle(a.Title)] || similarToAny(a.Title, seen) {
 			continue
 		}
 		out = append(out, a)
@@ -156,4 +158,39 @@ func normalizeLink(raw string) string {
 	u.RawQuery = q.Encode()
 	u.Fragment = ""
 	return strings.TrimRight(u.String(), "/")
+}
+
+// titleStems — основы значимых слов заголовка (первые 5 букв слов от 4 букв).
+func titleStems(normalized string) map[string]bool {
+	out := map[string]bool{}
+	for _, w := range strings.Fields(normalized) {
+		if r := []rune(w); len(r) >= 4 {
+			if len(r) > 5 {
+				r = r[:5]
+			}
+			out[string(r)] = true
+		}
+	}
+	return out
+}
+
+// similarToAny — тот же сюжет из другой ленты: общих основ ≥3 и ≥60% меньшего заголовка.
+func similarToAny(title string, seen []map[string]bool) bool {
+	a := titleStems(normalizeTitle(title))
+	for _, b := range seen {
+		common := 0
+		for k := range a {
+			if b[k] {
+				common++
+			}
+		}
+		min := len(a)
+		if len(b) < min {
+			min = len(b)
+		}
+		if common >= 3 && common*10 >= min*6 {
+			return true
+		}
+	}
+	return false
 }
