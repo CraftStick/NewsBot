@@ -2,6 +2,8 @@ package digest
 
 import (
 	"encoding/json"
+	"html"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -108,7 +110,7 @@ func DropPublished(articles []news.Article, history []publishedItem) []news.Arti
 	links := make(map[string]bool, len(history))
 	titles := make(map[string]bool, len(history))
 	for _, it := range history {
-		if l := strings.TrimSpace(it.Link); l != "" {
+		if l := normalizeLink(it.Link); l != "" {
 			links[l] = true
 		}
 		if t := normalizeTitle(it.Title); t != "" {
@@ -118,7 +120,7 @@ func DropPublished(articles []news.Article, history []publishedItem) []news.Arti
 
 	out := make([]news.Article, 0, len(articles))
 	for _, a := range articles {
-		if links[strings.TrimSpace(a.Link)] || titles[normalizeTitle(a.Title)] {
+		if links[normalizeLink(a.Link)] || titles[normalizeTitle(a.Title)] {
 			continue
 		}
 		out = append(out, a)
@@ -135,4 +137,23 @@ func HistoryTitles(history []publishedItem) []string {
 		}
 	}
 	return out
+}
+
+// normalizeLink приводит ссылку к виду для сравнения: из HTML дайджеста она
+// приходит с &amp;, а utm-метки у одной статьи разные.
+func normalizeLink(raw string) string {
+	raw = html.UnescapeString(strings.TrimSpace(raw))
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	q := u.Query()
+	for k := range q {
+		if strings.HasPrefix(k, "utm_") {
+			q.Del(k)
+		}
+	}
+	u.RawQuery = q.Encode()
+	u.Fragment = ""
+	return strings.TrimRight(u.String(), "/")
 }
