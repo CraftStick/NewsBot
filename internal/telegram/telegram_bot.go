@@ -146,9 +146,27 @@ func (tc *telegramController) startRegenerate(chatID int64) {
 	}()
 }
 
+func (tc *telegramController) handlePublish(q *tgbotapi.CallbackQuery) {
+	_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, "Публикую…"))
+	if err := publishPending(tc.cfg, strings.TrimPrefix(q.Data, cbPublish)); err != nil {
+		log.Printf("публикация: %v", err)
+		tc.sendPlain(q.Message.Chat.ID, "❌ Не опубликовано: "+err.Error())
+		return
+	}
+	log.Print("пост опубликован юзерботом")
+	// кнопку убираем, чтобы не нажали дважды
+	_, _ = tc.bot.Request(tgbotapi.NewEditMessageReplyMarkup(q.Message.Chat.ID, q.Message.MessageID,
+		tgbotapi.InlineKeyboardMarkup{InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{}}))
+	tc.sendPlain(q.Message.Chat.ID, "✅ Опубликовано в канале")
+}
+
 func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 	if update.CallbackQuery != nil {
 		q := update.CallbackQuery
+		if strings.HasPrefix(q.Data, cbPublish) && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
+			tc.handlePublish(q)
+			return
+		}
 		if q.Data == cbRegenerateDigest && q.Message != nil {
 			_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, "Запускаю новый дайджест…"))
 			tc.startRegenerate(q.Message.Chat.ID)

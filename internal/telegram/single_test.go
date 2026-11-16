@@ -1,6 +1,12 @@
 package telegram
 
-import "testing"
+import (
+	"os"
+	"strings"
+	"testing"
+
+	"treesheild-newsbot/internal/config"
+)
 
 func TestFormatSinglePost(t *testing.T) {
 	in := "<b>1. <a href=\"https://x/1\">Beget получил DDoS после взлома</a></b>\nТекст один. Текст два."
@@ -32,5 +38,26 @@ func TestPickEmojiNewTopics(t *testing.T) {
 		if _, id := PickEmoji(in); id != want {
 			t.Errorf("%q: id=%s, ждали %s", in, id, want)
 		}
+	}
+}
+
+func TestPublishPending(t *testing.T) {
+	t.Chdir(t.TempDir())
+	key, err := savePending("<b>x</b>", "123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Config{PublishCmd: "cat > got.json"}
+	if err := publishPending(cfg, key); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile("got.json"); !strings.Contains(string(b), `"emoji_id":"123"`) {
+		t.Fatalf("stdin: %s", b)
+	}
+	if publishPending(cfg, key) == nil { // повтор не должен публиковать
+		t.Fatal("повторная публикация прошла")
+	}
+	if publishPending(cfg, "../x") == nil {
+		t.Fatal("ключ не проверен")
 	}
 }

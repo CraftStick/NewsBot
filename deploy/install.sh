@@ -32,6 +32,10 @@ if [[ ! -f "$INSTALL_DIR/.env" ]]; then
   echo "Создан $INSTALL_DIR/.env — отредактируйте перед стартом."
 fi
 
+# юзербот-публикатор (кнопка «Опубликовать»); venv и вход — см. README
+mkdir -p "$INSTALL_DIR/publisher"
+cp publisher/publish.py "$INSTALL_DIR/publisher/"
+
 chown -R newsbot:newsbot "$INSTALL_DIR"
 chmod 755 "$INSTALL_DIR/$APP_NAME"
 

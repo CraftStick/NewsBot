@@ -22,6 +22,7 @@ type Config struct {
 	GeminiFallbackModel   string
 	CronSchedule          string
 	SingleCron            string // одиночные посты в будни; "" = выключено
+	PublishCmd            string // команда юзербота: JSON на stdin → пост в канал; "" = без кнопки «Опубликовать»
 	Timezone              *time.Location
 	PhotoEnabled          bool
 }
@@ -70,6 +71,7 @@ func Load() (Config, error) {
 			cfg.SingleCron = ""
 		}
 	}
+	cfg.PublishCmd = strings.TrimSpace(os.Getenv("PUBLISH_CMD"))
 	if cfg.CronSchedule == "" {
 		cfg.CronSchedule = defaultCronSchedule
 	}

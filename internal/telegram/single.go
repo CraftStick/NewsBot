@@ -1,6 +1,19 @@
 package telegram
 
 import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"os/exec"
+	"time"
+
+	"crypto/sha1"
+	"encoding/hex"
+	"encoding/json"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -9,8 +22,8 @@ import (
 
 var headingNumRE = regexp.MustCompile(`^<b>\s*\d{1,2}\.\s*`)
 
-// PublishSinglePreview шлёт одиночный пост ТОЛЬКО в личку на проверку: в канал
-// бот сам ничего не отправляет, пост копируется вручную.
+// PublishSinglePreview шлёт одиночный пост ТОЛЬКО в личку на проверку. В канал
+// он уходит лишь по кнопке «Опубликовать» (юзербот, PUBLISH_CMD) или копированием вручную.
 func PublishSinglePreview(cfg config.Config, post string) error {
 	tc, err := newTelegramController(cfg)
 	if err != nil {
@@ -19,7 +32,65 @@ func PublishSinglePreview(cfg config.Config, post string) error {
 	if err := tc.sendHTML(tc.chatID, "<i>Пост на сегодня (превью).</i> Подходит — скопируйте <b>следующее</b> сообщение в канал; нет — просто пропустите.", false); err != nil {
 		return err
 	}
-	return tc.sendHTML(tc.chatID, formatSinglePost(post), false)
+	html := formatSinglePost(post)
+	if cfg.PublishCmd == "" {
+		return tc.sendHTML(tc.chatID, html, false)
+	}
+	_, id := PickEmoji(html)
+	key, err := savePending(html, id)
+	if err != nil {
+		return err
+	}
+	msg := tgbotapi.NewMessage(tc.chatID, html)
+	msg.ParseMode = tgbotapi.ModeHTML
+	msg.DisableWebPagePreview = true
+	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("📣 Опубликовать в канал", cbPublish+key)))
+	_, err = tc.bot.Send(msg)
+	return err
+}
+
+const (
+	cbPublish  = "pub:"
+	pendingDir = "pending"
+)
+
+type pendingPost struct {
+	HTML    string `json:"html"`
+	EmojiID string `json:"emoji_id"`
+}
+
+// savePending кладёт пост на диск под коротким ключом: callback_data ≤ 64 байт,
+// а кнопку может нажать другой процесс, чем отправивший превью.
+func savePending(html, emojiID string) (string, error) {
+	sum := sha1.Sum([]byte(html))
+	key := hex.EncodeToString(sum[:8])
+	b, _ := json.Marshal(pendingPost{html, emojiID})
+	if err := os.MkdirAll(pendingDir, 0o700); err != nil {
+		return "", err
+	}
+	return key, os.WriteFile(filepath.Join(pendingDir, key+".json"), b, 0o600)
+}
+
+// publishPending отдаёт сохранённый пост юзерботу. Файл удаляется только после успеха:
+// повторное нажатие после публикации ничего не отправит.
+func publishPending(cfg config.Config, key string) error {
+	if !regexp.MustCompile(`^[0-9a-f]{16}$`).MatchString(key) {
+		return errors.New("неверный ключ")
+	}
+	path := filepath.Join(pendingDir, key+".json")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return errors.New("пост уже опубликован или устарел")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "sh", "-c", cfg.PublishCmd)
+	cmd.Stdin = bytes.NewReader(b)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("юзербот: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return os.Remove(path)
 }
 
 // topicEmoji — эмодзи по теме. ID — анимированный custom emoji для юзербота
