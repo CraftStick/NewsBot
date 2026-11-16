@@ -142,11 +142,11 @@ func NotifyWarning(cfg config.Config, text string) {
 	}
 }
 
-func (tc *telegramController) startRegenerate(chatID int64) {
-	tc.startJob(chatID, "дайджест", tc.regenerate)
+func (tc *telegramController) startRegenerate(chatID int64, msgID int) {
+	tc.startJob(chatID, msgID, "дайджест", tc.regenerate)
 }
 
-func (tc *telegramController) startJob(chatID int64, what string, run func() error) {
+func (tc *telegramController) startJob(chatID int64, msgID int, what string, run func() error) {
 	if !tc.allowed(chatID) {
 		tc.sendPlain(chatID, "Этот бот доступен только владельцу превью.")
 		return
@@ -158,7 +158,15 @@ func (tc *telegramController) startJob(chatID int64, what string, run func() err
 	go func() {
 		defer tc.mu.Unlock()
 		// Одно сообщение-статус: потом правим его в ошибку или убираем, когда пришло превью.
-		status, err := tc.bot.Send(tgbotapi.NewMessage(chatID, "⏳ Собираю "+what+" (RSS + Gemini)…"))
+		text := "⏳ Собираю " + what + " (RSS + Gemini)…"
+		var status tgbotapi.Message
+		var err error
+		if msgID != 0 { // нажата кнопка: правим то самое сообщение; у фото-превью это не выйдет
+			status, err = tc.bot.Send(tgbotapi.NewEditMessageText(chatID, msgID, text))
+		}
+		if msgID == 0 || err != nil {
+			status, err = tc.bot.Send(tgbotapi.NewMessage(chatID, text))
+		}
 		if err != nil {
 			log.Printf("telegram: %v", err)
 		}
@@ -213,7 +221,7 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 		}
 		if q.Data == cbRegenerateDigest && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
 			_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, "Запускаю новый дайджест…"))
-			tc.startRegenerate(q.Message.Chat.ID)
+			tc.startRegenerate(q.Message.Chat.ID, q.Message.MessageID)
 		}
 		return
 	}
@@ -233,7 +241,7 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 			"Или нажмите кнопку ниже"
 		_ = tc.sendHTML(chatID, welcome, true)
 	case "/digest", "/new", "/новости", "/дайджест":
-		tc.startRegenerate(chatID)
+		tc.startRegenerate(chatID, 0)
 	}
 }
 
