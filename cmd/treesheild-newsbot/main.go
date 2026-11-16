@@ -54,6 +54,7 @@ func main() {
 		cfg.Timezone, cfg.GeminiModel, cfg.CronSchedule)
 
 	regenerate := func() error { return app.RunDigest(cfg) }
+	single1 := func() error { return app.RunSingle(cfg) }
 
 	switch {
 	case *single:
@@ -66,7 +67,7 @@ func main() {
 			log.Fatalf("дайджест: %v", err)
 		}
 		log.Println("Жду кнопку «Другой дайджест» или /digest. Ctrl+C — выход.")
-		telegram.RunUntilSignal(cfg, regenerate)
+		telegram.RunUntilSignal(cfg, regenerate, single1)
 		return
 	case *runIn > 0:
 		app.RunAfter(cfg, *runIn)
@@ -81,7 +82,7 @@ func main() {
 	botCtx, botCancel := context.WithCancel(context.Background())
 	defer botCancel()
 	go func() {
-		if err := telegram.Run(botCtx, cfg, regenerate); err != nil {
+		if err := telegram.Run(botCtx, cfg, regenerate, single1); err != nil {
 			log.Printf("telegram bot: %v", err)
 		}
 	}()

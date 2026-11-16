@@ -26,6 +26,7 @@ type telegramController struct {
 	chatID     int64
 	mu         sync.Mutex
 	regenerate func() error                   // пересборка дайджеста по кнопке и /digest
+	single     func() error                   // один пост по /post
 	publishKB  *tgbotapi.InlineKeyboardMarkup // кнопка «Опубликовать» для следующего сообщения
 }
 
@@ -134,19 +135,23 @@ func NotifyWarning(cfg config.Config, text string) {
 }
 
 func (tc *telegramController) startRegenerate(chatID int64) {
+	tc.startJob(chatID, "дайджест", tc.regenerate)
+}
+
+func (tc *telegramController) startJob(chatID int64, what string, run func() error) {
 	if !tc.allowed(chatID) {
 		tc.sendPlain(chatID, "Этот бот доступен только владельцу превью.")
 		return
 	}
 	if !tc.mu.TryLock() {
-		tc.sendPlain(chatID, "⏳ Уже собираю дайджест, подождите…")
+		tc.sendPlain(chatID, "⏳ Уже собираю, подождите…")
 		return
 	}
 	go func() {
 		defer tc.mu.Unlock()
-		tc.sendPlain(chatID, "⏳ Собираю новый дайджест (RSS + Gemini)…")
-		if err := tc.regenerate(); err != nil {
-			log.Printf("дайджест: %v", err)
+		tc.sendPlain(chatID, "⏳ Собираю "+what+" (RSS + Gemini)…")
+		if err := run(); err != nil {
+			log.Printf("%s: %v", what, err)
 			tc.sendPlain(chatID, "❌ Ошибка: "+err.Error())
 		}
 	}()
@@ -192,10 +197,13 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 	case "/start", "/help":
 		const welcome = "Привет! Я собираю пятничный дайджест.\n\n" +
 			"<b>/digest</b> — собрать новый дайджест\n" +
+			"<b>/post</b> — собрать один пост\n" +
 			"Или нажмите кнопку ниже"
 		_ = tc.sendHTML(chatID, welcome, true)
 	case "/digest", "/new", "/новости", "/дайджест":
 		tc.startRegenerate(chatID)
+	case "/post", "/single", "/пост":
+		tc.startJob(chatID, "пост", tc.single)
 	}
 }
 
@@ -219,13 +227,13 @@ func (tc *telegramController) pollingAvailable() error {
 	return nil
 }
 
-func Run(ctx context.Context, cfg config.Config, regenerate func() error) error {
+func Run(ctx context.Context, cfg config.Config, regenerate, single func() error) error {
 	tc, err := newTelegramController(cfg)
 	if err != nil {
 		return err
 	}
-	tc.regenerate = regenerate
-	log.Printf("Telegram: @%s (кнопка и /digest)", tc.bot.Self.UserName)
+	tc.regenerate, tc.single = regenerate, single
+	log.Printf("Telegram: @%s (кнопка, /digest, /post)", tc.bot.Self.UserName)
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
@@ -244,7 +252,7 @@ func Run(ctx context.Context, cfg config.Config, regenerate func() error) error 
 	}
 }
 
-func RunUntilSignal(cfg config.Config, regenerate func() error) {
+func RunUntilSignal(cfg config.Config, regenerate, single func() error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -268,7 +276,7 @@ func RunUntilSignal(cfg config.Config, regenerate func() error) {
 		return
 	}
 
-	if err := Run(ctx, cfg, regenerate); err != nil {
+	if err := Run(ctx, cfg, regenerate, single); err != nil {
 		log.Printf("telegram bot: %v", err)
 	}
 }
