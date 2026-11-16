@@ -23,37 +23,8 @@ import (
 )
 
 var (
-	headingNumRE = regexp.MustCompile(`^<b>\s*\d{1,2}\.\s*`)
 	pendingKeyRE = regexp.MustCompile(`^[0-9a-f]{16}$`)
 )
-
-// PublishSinglePreview шлёт одиночный пост ТОЛЬКО в личку на проверку. В канал
-// он уходит лишь по кнопке «Опубликовать» (юзербот, PUBLISH_CMD) или копированием вручную.
-func PublishSinglePreview(cfg config.Config, post, image string) error {
-	tc, err := newTelegramController(cfg)
-	if err != nil {
-		return err
-	}
-	if err := tc.sendHTML(tc.chatID, "<i>Пост на сегодня (превью).</i> Подходит — скопируйте <b>следующее</b> сообщение в канал; нет — просто пропустите.", false); err != nil {
-		return err
-	}
-	html := formatSinglePost(post)
-	if cfg.PublishCmd == "" {
-		return tc.sendHTML(tc.chatID, html, false)
-	}
-	_, id := PickEmoji(html)
-	key, err := savePending(html, id, image)
-	if err != nil {
-		return err
-	}
-	msg := tgbotapi.NewMessage(tc.chatID, html)
-	msg.ParseMode = tgbotapi.ModeHTML
-	msg.DisableWebPagePreview = true
-	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("📣 Опубликовать в канал", cbPublish+key)))
-	_, err = tc.bot.Send(msg)
-	return err
-}
 
 // setPublishButton сохраняет дайджест и включает кнопку «Опубликовать» на следующем
 // сообщении. Без PUBLISH_CMD или при ошибке записи кнопки нет (публикуют вручную).
@@ -75,9 +46,9 @@ func (tc *telegramController) setPublishButton(html string, photo []byte) {
 		log.Printf("кнопка публикации не создана: %v", err)
 		return
 	}
-	kb := tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("📣 Опубликовать в канал", cbPublish+key)))
-	tc.publishKB = &kb
+	row := tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("📣 Опубликовать в канал", cbPublish+key))
+	tc.publishKB = &row
 }
 
 const (
@@ -179,12 +150,4 @@ func PickEmoji(text string) (emoji, id string) {
 		}
 	}
 	return defaultEmoji, defaultEmojiID
-}
-
-// formatSinglePost: «эмодзи заголовок», пустая строка, текст.
-func formatSinglePost(post string) string {
-	out := headingNumRE.ReplaceAllString(strings.TrimSpace(post), "<b>")
-	out = strings.Replace(out, "</b>\n", "</b>\n\n", 1)
-	e, _ := PickEmoji(out)
-	return e + " " + out
 }

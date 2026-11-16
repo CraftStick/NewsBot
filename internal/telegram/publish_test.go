@@ -11,14 +11,6 @@ import (
 	"treesheild-newsbot/internal/config"
 )
 
-func TestFormatSinglePost(t *testing.T) {
-	in := "<b>1. <a href=\"https://x/1\">Beget получил DDoS после взлома</a></b>\nТекст один. Текст два."
-	want := "🛡️ <b><a href=\"https://x/1\">Beget получил DDoS после взлома</a></b>\n\nТекст один. Текст два."
-	if got := formatSinglePost(in); got != want {
-		t.Fatalf("got %q", got)
-	}
-}
-
 func TestPickEmojiID(t *testing.T) {
 	if _, id := PickEmoji("Новый VPN под блокировкой"); id != "5767151002666929821" { // блокировка раньше VPN
 		t.Fatalf("id=%s", id)
@@ -72,7 +64,7 @@ func TestSetPublishButtonDigest(t *testing.T) {
 	if tc.publishKB == nil {
 		t.Fatal("кнопки нет")
 	}
-	key := strings.TrimPrefix(*tc.publishKB.InlineKeyboard[0][0].CallbackData, cbPublish)
+	key := strings.TrimPrefix(*(*tc.publishKB)[0].CallbackData, cbPublish)
 	if err := publishPending(tc.cfg, key); err != nil {
 		t.Fatal(err)
 	}
@@ -99,5 +91,17 @@ func TestSweepPending(t *testing.T) {
 	}
 	if files, _ := filepath.Glob(filepath.Join(pendingDir, "*")); len(files) != 1 {
 		t.Fatalf("ждали 1 свежую заготовку, есть %v", files)
+	}
+}
+
+func TestPreviewKeyboard(t *testing.T) {
+	tc := &telegramController{cfg: config.Config{PublishCmd: "cat"}}
+	if n := len(tc.previewKeyboard().InlineKeyboard); n != 1 {
+		t.Fatalf("без публикации ряд один, а %d", n)
+	}
+	t.Chdir(t.TempDir())
+	tc.setPublishButton("<b>d</b>", nil)
+	if n := len(tc.previewKeyboard().InlineKeyboard); n != 2 {
+		t.Fatalf("ожидалось 2 ряда, а %d", n)
 	}
 }

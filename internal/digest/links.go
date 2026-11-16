@@ -238,29 +238,3 @@ func ValidateNewsLinks(body string) error {
 	}
 	return nil
 }
-
-// ValidateSingleLink — у одиночного поста должна быть ссылка на источник.
-func ValidateSingleLink(body string) error {
-	blocks := splitNewsBlocks(body)
-	if len(blocks) == 0 || extractNewsURL(blocks[0]) == "" {
-		return fmt.Errorf("пост без ссылки на источник")
-	}
-	return nil
-}
-
-// EnsureSingleLink ставит ссылку одиночному посту только если статья ленты
-// действительно подходит по теме; «любую свободную» не подставляем.
-func EnsureSingleLink(body string, articles []news.Article) (string, error) {
-	blocks := splitNewsBlocks(body)
-	if len(blocks) == 0 {
-		return body, fmt.Errorf("пустой пост")
-	}
-	if extractNewsURL(blocks[0]) != "" {
-		return EnsureNewsLinks(body, articles), nil
-	}
-	m, score := findBestArticle(ExtractNewsTitle(blocks[0]), newsBlockBody(blocks[0]), articles, map[string]bool{})
-	if m == nil || score < 12 {
-		return body, fmt.Errorf("пост не совпал ни с одной статьёй ленты, пропускаю")
-	}
-	return EnsureNewsLinks(body, []news.Article{*m}), nil
-}

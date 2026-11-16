@@ -25,9 +25,8 @@ type telegramController struct {
 	bot        *tgbotapi.BotAPI
 	chatID     int64
 	mu         sync.Mutex
-	regenerate func() error                   // пересборка дайджеста по кнопке и /digest
-	single     func() error                   // один пост по /post
-	publishKB  *tgbotapi.InlineKeyboardMarkup // кнопка «Опубликовать» для следующего сообщения
+	regenerate func() error                     // пересборка дайджеста по кнопке и /digest
+	publishKB  *[]tgbotapi.InlineKeyboardButton // кнопка «Опубликовать» для превью
 }
 
 func newTelegramController(cfg config.Config) (*telegramController, error) {
@@ -53,6 +52,15 @@ func regenerateKeyboard() tgbotapi.InlineKeyboardMarkup {
 	)
 }
 
+// previewKeyboard — кнопки под превью: «Опубликовать» (если есть) и «Другой дайджест».
+func (tc *telegramController) previewKeyboard() tgbotapi.InlineKeyboardMarkup {
+	kb := regenerateKeyboard()
+	if tc.publishKB != nil {
+		kb.InlineKeyboard = append([][]tgbotapi.InlineKeyboardButton{*tc.publishKB}, kb.InlineKeyboard...)
+	}
+	return kb
+}
+
 func (tc *telegramController) allowed(chatID int64) bool {
 	return chatID == tc.chatID
 }
@@ -63,8 +71,8 @@ func (tc *telegramController) sendHTML(chatID int64, html string, withRegenerate
 	msg.DisableWebPagePreview = true
 	if withRegenerateBtn {
 		msg.ReplyMarkup = regenerateKeyboard()
-	} else if tc.publishKB != nil {
-		msg.ReplyMarkup = *tc.publishKB
+	} else {
+		msg.ReplyMarkup = tc.previewKeyboard()
 	}
 	sent, err := tc.bot.Send(msg)
 	if err != nil {
@@ -81,8 +89,8 @@ func (tc *telegramController) sendPhotoCaption(chatID int64, photo []byte, htmlC
 		msg.ParseMode = tgbotapi.ModeHTML
 		msg.Caption = htmlCaption
 	}
-	if htmlCaption != "" && tc.publishKB != nil {
-		msg.ReplyMarkup = *tc.publishKB
+	if htmlCaption != "" {
+		msg.ReplyMarkup = tc.previewKeyboard()
 	}
 	sent, err := tc.bot.Send(msg)
 	if err != nil {
@@ -149,26 +157,51 @@ func (tc *telegramController) startJob(chatID int64, what string, run func() err
 	}
 	go func() {
 		defer tc.mu.Unlock()
-		tc.sendPlain(chatID, "⏳ Собираю "+what+" (RSS + Gemini)…")
+		// Одно сообщение-статус: потом правим его в ошибку или убираем, когда пришло превью.
+		status, err := tc.bot.Send(tgbotapi.NewMessage(chatID, "⏳ Собираю "+what+" (RSS + Gemini)…"))
+		if err != nil {
+			log.Printf("telegram: %v", err)
+		}
 		if err := run(); err != nil {
 			log.Printf("%s: %v", what, err)
-			tc.sendPlain(chatID, "❌ Ошибка: "+err.Error())
+			text := "❌ Ошибка: " + err.Error()
+			if status.MessageID == 0 {
+				tc.sendPlain(chatID, text)
+				return
+			}
+			edit := tgbotapi.NewEditMessageText(chatID, status.MessageID, text)
+			kb := regenerateKeyboard()
+			edit.ReplyMarkup = &kb
+			if _, err := tc.bot.Send(edit); err != nil {
+				log.Printf("telegram: %v", err)
+			}
+			return
+		}
+		if status.MessageID != 0 {
+			_, _ = tc.bot.Request(tgbotapi.NewDeleteMessage(chatID, status.MessageID))
 		}
 	}()
 }
 
+// handlePublish публикует и отвечает всплывающим окном, без новых сообщений в чате.
 func (tc *telegramController) handlePublish(q *tgbotapi.CallbackQuery) {
-	_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, "Публикую…"))
+	cb := tgbotapi.NewCallback(q.ID, "✅ Опубликовано в канале")
+	cb.ShowAlert = true
 	if err := publishPending(tc.cfg, strings.TrimPrefix(q.Data, cbPublish)); err != nil {
 		log.Printf("публикация: %v", err)
-		tc.sendPlain(q.Message.Chat.ID, "❌ Не опубликовано: "+err.Error())
-		return
+		cb.Text = "❌ Не опубликовано: " + err.Error()
+		if r := []rune(cb.Text); len(r) > 200 {
+			cb.Text = string(r[:199]) + "…"
+		}
+	} else {
+		log.Print("пост опубликован юзерботом")
+		// публикующую кнопку убираем, чтобы не нажали дважды; «Другой дайджест» оставляем
+		kb := regenerateKeyboard()
+		_, _ = tc.bot.Request(tgbotapi.NewEditMessageReplyMarkup(q.Message.Chat.ID, q.Message.MessageID, kb))
 	}
-	log.Print("пост опубликован юзерботом")
-	// кнопку убираем, чтобы не нажали дважды
-	_, _ = tc.bot.Request(tgbotapi.NewEditMessageReplyMarkup(q.Message.Chat.ID, q.Message.MessageID,
-		tgbotapi.InlineKeyboardMarkup{InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{}}))
-	tc.sendPlain(q.Message.Chat.ID, "✅ Опубликовано в канале")
+	if _, err := tc.bot.Request(cb); err != nil {
+		log.Printf("telegram: ответ на кнопку: %v", err)
+	}
 }
 
 func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
@@ -197,13 +230,10 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 	case "/start", "/help":
 		const welcome = "Привет! Я собираю пятничный дайджест.\n\n" +
 			"<b>/digest</b> — собрать новый дайджест\n" +
-			"<b>/post</b> — собрать один пост\n" +
 			"Или нажмите кнопку ниже"
 		_ = tc.sendHTML(chatID, welcome, true)
 	case "/digest", "/new", "/новости", "/дайджест":
 		tc.startRegenerate(chatID)
-	case "/post", "/single", "/пост":
-		tc.startJob(chatID, "пост", tc.single)
 	}
 }
 
@@ -227,13 +257,13 @@ func (tc *telegramController) pollingAvailable() error {
 	return nil
 }
 
-func Run(ctx context.Context, cfg config.Config, regenerate, single func() error) error {
+func Run(ctx context.Context, cfg config.Config, regenerate func() error) error {
 	tc, err := newTelegramController(cfg)
 	if err != nil {
 		return err
 	}
-	tc.regenerate, tc.single = regenerate, single
-	log.Printf("Telegram: @%s (кнопка, /digest, /post)", tc.bot.Self.UserName)
+	tc.regenerate = regenerate
+	log.Printf("Telegram: @%s (кнопка, /digest)", tc.bot.Self.UserName)
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
@@ -252,7 +282,7 @@ func Run(ctx context.Context, cfg config.Config, regenerate, single func() error
 	}
 }
 
-func RunUntilSignal(cfg config.Config, regenerate, single func() error) {
+func RunUntilSignal(cfg config.Config, regenerate func() error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -276,7 +306,7 @@ func RunUntilSignal(cfg config.Config, regenerate, single func() error) {
 		return
 	}
 
-	if err := Run(ctx, cfg, regenerate, single); err != nil {
+	if err := Run(ctx, cfg, regenerate); err != nil {
 		log.Printf("telegram bot: %v", err)
 	}
 }

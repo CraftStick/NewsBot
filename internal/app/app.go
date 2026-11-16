@@ -12,7 +12,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"unicode/utf8"
 
 	"github.com/go-co-op/gocron/v2"
 
@@ -63,24 +62,9 @@ func StartScheduler(cfg config.Config) (gocron.Scheduler, error) {
 		return nil, fmt.Errorf("cron %q: %w", cfg.CronSchedule, err)
 	}
 
-	if cfg.SingleCron != "" {
-		_, err = scheduler.NewJob(
-			gocron.CronJob(cfg.SingleCron, false),
-			gocron.NewTask(func() {
-				if err := RunSingle(cfg); err != nil {
-					log.Printf("ошибка одиночного поста: %v", err)
-					telegram.NotifyFailure(cfg, err)
-				}
-			}),
-			gocron.WithName("single-post"),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("single cron %q: %w", cfg.SingleCron, err)
-		}
-	}
 	scheduler.Start()
-	log.Printf("Планировщик: дайджест cron=%q, посты cron=%q (%s) → личка %s. Команды /digest и /post в боте. Ctrl+C — выход.",
-		cfg.CronSchedule, cfg.SingleCron, cfg.Timezone, cfg.TelegramPreviewChatID)
+	log.Printf("Планировщик: дайджест cron=%q (%s) → личка %s. Команда /digest в боте. Ctrl+C — выход.",
+		cfg.CronSchedule, cfg.Timezone, cfg.TelegramPreviewChatID)
 	return scheduler, nil
 }
 
@@ -145,12 +129,8 @@ func RunDigest(cfg config.Config) (err error) {
 	}
 
 	run.DigestHTML = newsHTML
-	sendHTML := newsHTML // в историю пишем без итогового блока
-	if r := newsHTML + digest.WeekRecap(history, now); utf8.RuneCountInString(r) <= 3900 {
-		sendHTML = r // иначе не влезем в лимит Telegram
-	}
 	log.Printf("Отправка превью в чат %s…", cfg.TelegramPreviewChatID)
-	if err := telegram.PublishPreview(cfg, sendHTML, digestPhoto(ctx, newsHTML, articles)); err != nil {
+	if err := telegram.PublishPreview(cfg, newsHTML, digestPhoto(ctx, newsHTML, articles)); err != nil {
 		return err
 	}
 	if err := recordDigestSent(now); err != nil {

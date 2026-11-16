@@ -25,7 +25,6 @@ func main() {
 	once := flag.Bool("preview", false, "сразу собрать дайджест и отправить в личку")
 	runIn := flag.Duration("in", 0, "через сколько отправить в личку (например 1m, 30s)")
 	cronOverride := flag.String("cron", "", "cron (5 полей), перебивает CRON_SCHEDULE")
-	single := flag.Bool("single", false, "собрать один пост и отправить превью в личку, затем выйти")
 	flag.Parse()
 
 	if *once && *runIn > 0 {
@@ -54,20 +53,14 @@ func main() {
 		cfg.Timezone, cfg.GeminiModel, cfg.CronSchedule)
 
 	regenerate := func() error { return app.RunDigest(cfg) }
-	single1 := func() error { return app.RunSingle(cfg) }
 
 	switch {
-	case *single:
-		if err := app.RunSingle(cfg); err != nil {
-			log.Fatalf("пост: %v", err)
-		}
-		return
 	case *once:
 		if err := app.RunDigest(cfg); err != nil {
 			log.Fatalf("дайджест: %v", err)
 		}
 		log.Println("Жду кнопку «Другой дайджест» или /digest. Ctrl+C — выход.")
-		telegram.RunUntilSignal(cfg, regenerate, single1)
+		telegram.RunUntilSignal(cfg, regenerate)
 		return
 	case *runIn > 0:
 		app.RunAfter(cfg, *runIn)
@@ -82,7 +75,7 @@ func main() {
 	botCtx, botCancel := context.WithCancel(context.Background())
 	defer botCancel()
 	go func() {
-		if err := telegram.Run(botCtx, cfg, regenerate, single1); err != nil {
+		if err := telegram.Run(botCtx, cfg, regenerate); err != nil {
 			log.Printf("telegram bot: %v", err)
 		}
 	}()

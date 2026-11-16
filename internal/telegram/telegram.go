@@ -20,12 +20,6 @@ func PublishPreview(cfg config.Config, newsBody string, photo []byte) error {
 	}
 	log.Printf("Telegram: @%s", tc.bot.Self.UserName)
 
-	const hint = "<i>Превью готово.</i> Скопируйте <b>следующее</b> сообщение в канал. " +
-		"Не подошло — кнопка ниже или /digest."
-	if err := tc.sendHTML(tc.chatID, hint, true); err != nil {
-		return err
-	}
-
 	// Фото с дайджестом в подписи (одним сообщением, при необходимости текст ужимается).
 	if cfg.PhotoEnabled {
 		if caption, ok := digest.AssembleDigestForCaption(newsBody); ok {
@@ -33,7 +27,7 @@ func PublishPreview(cfg config.Config, newsBody string, photo []byte) error {
 			if err := tc.sendPhotoCaption(tc.chatID, photo, caption); err != nil {
 				return err
 			}
-			log.Printf("Превью отправлено (подсказка + фото с дайджестом)")
+			log.Printf("Превью отправлено (фото с дайджестом)")
 			return nil
 		}
 		// Не влезло даже после сжатия — фото отдельно, полный текст следом.
