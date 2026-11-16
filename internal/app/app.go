@@ -122,14 +122,21 @@ func RunDigest(cfg config.Config) (err error) {
 	pool := news.ArticlesForPrompt(articles)
 	log.Printf("Запрос к Gemini (~%d симв., %d статей)…", len(news.BuildDigestPrompt(articles, 0)), len(pool))
 
-	newsHTML, err := gemini.GenerateDigest(ctx, cfg, articles, digest.HistoryTitles(history))
-	if err != nil {
-		return err
-	}
-
-	newsHTML = digest.EnsureNewsLinks(newsHTML, articles)
-	if err := digest.ValidateNewsLinks(newsHTML); err != nil {
-		return fmt.Errorf("ссылки в заголовках: %w", err)
+	// Gemini иногда выдаёт пункт, к которому не находится статья: одна повторная попытка.
+	var newsHTML string
+	for attempt := 1; ; attempt++ {
+		newsHTML, err = gemini.GenerateDigest(ctx, cfg, articles, digest.HistoryTitles(history))
+		if err != nil {
+			return err
+		}
+		newsHTML = digest.EnsureNewsLinks(newsHTML, articles)
+		if err = digest.ValidateNewsLinks(newsHTML); err == nil {
+			break
+		}
+		if attempt == 2 {
+			return fmt.Errorf("ссылки в заголовках: %w", err)
+		}
+		log.Printf("попытка %d: %v — генерирую заново", attempt, err)
 	}
 
 	run.DigestHTML = newsHTML
