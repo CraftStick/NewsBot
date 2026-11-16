@@ -114,6 +114,8 @@ func RunDigest(cfg config.Config) (err error) {
 		articles = fresh
 	}
 
+	// kod.ru — основной источник (самые свежие новости), остальные ленты — резерв.
+	sort.SliceStable(articles, func(i, j int) bool { return isKod(articles[i]) && !isKod(articles[j]) })
 	run.Candidates = articles
 	pool := news.ArticlesForPrompt(articles)
 	log.Printf("Запрос к Gemini (~%d симв., %d статей)…", len(news.BuildDigestPrompt(articles, 0)), len(pool))
@@ -142,21 +144,16 @@ func RunDigest(cfg config.Config) (err error) {
 	return nil
 }
 
-// digestPhoto — обложка дайджеста: первая статья kod.ru из дайджеста, иначе первая
-// с картинкой; nil — тогда стандартная. Порядок пунктов = важность, ищем сверху вниз.
+func isKod(a news.Article) bool { return strings.Contains(a.Link, "kod.ru") }
+
+// digestPhoto — обложка дайджеста: картинка первой статьи kod.ru из дайджеста;
+// nil — тогда стандартная (чужие источники не берём). Порядок пунктов = важность.
 func digestPhoto(ctx context.Context, html string, articles []news.Article) []byte {
-	var linked []news.Article
 	for _, a := range articles {
-		if a.Link != "" && strings.Contains(html, a.Link) {
-			linked = append(linked, a)
-		}
-	}
-	sort.SliceStable(linked, func(i, j int) bool {
-		return strings.Contains(linked[i].Link, "kod.ru") && !strings.Contains(linked[j].Link, "kod.ru")
-	})
-	for _, a := range linked {
-		if b := news.DownloadImage(ctx, news.ImageFor(ctx, a)); b != nil {
-			return b
+		if isKod(a) && strings.Contains(html, a.Link) {
+			if b := news.DownloadImage(ctx, news.ImageFor(ctx, a)); b != nil {
+				return b
+			}
 		}
 	}
 	return nil

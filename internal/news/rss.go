@@ -433,7 +433,7 @@ func BuildDigestPrompt(articles []Article, maxItems int) string {
 		pool = pool[:maxItems]
 	}
 	var b strings.Builder
-	b.WriteString("Лента за последние 7 дней (приоритет — Россия/рунет, ↓новее). Бери только строки с датой в окне:\n")
+	b.WriteString("Лента за последние 7 дней (приоритет — Россия/рунет; сначала идёт основной источник «Код Дурова», его новости бери в первую очередь, остальные — резерв). Бери только строки с датой в окне:\n")
 	for i, a := range pool {
 		line := fmt.Sprintf("%d.%s|%s|%s|%s",
 			i+1,
