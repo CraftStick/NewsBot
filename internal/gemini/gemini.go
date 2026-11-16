@@ -99,7 +99,7 @@ func GenerateDigest(ctx context.Context, cfg config.Config, articles []news.Arti
 
 	budget := &requestBudget{left: geminiRunRequestBudget, minGap: geminiMinRequestGap}
 
-	body, err := generateDigestBatch(ctx, client, cfg, buildDigestUserPrompt(cfg, articles, published), budget)
+	body, kept, err := generateDigestBatch(ctx, client, cfg, buildDigestUserPrompt(cfg, articles, published), budget)
 	if err == nil {
 		return body, nil
 	}
@@ -109,14 +109,14 @@ func GenerateDigest(ctx context.Context, cfg config.Config, articles []news.Arti
 	if errors.Is(err, errBudgetExhausted) {
 		return "", err // по одной новости — это ещё до 90 запросов, дневной квоты не хватит
 	}
-	log.Printf("Пакетная генерация не удалась (%v), пробуем по одной новости…", err)
+	log.Printf("Пакетная генерация не удалась (%v), пробуем по одной новости (готовых пунктов: %d)…", err, len(kept))
 
-	return generateDigestSequential(ctx, client, cfg, news.BuildDigestPrompt(articles, geminiSequentialArticles), published, budget)
+	return generateDigestSequential(ctx, client, cfg, news.BuildDigestPrompt(articles, geminiSequentialArticles), published, kept, budget)
 }
 
 // responseSnippet — начало ответа модели для лога отбракованных попыток.
 func responseSnippet(s string) string {
-	const max = 400
+	const max = 1500
 	r := []rune(strings.TrimSpace(s))
 	if len(r) <= max {
 		return string(r)
@@ -151,8 +151,10 @@ func generateDigestBatch(
 	cfg config.Config,
 	userText string,
 	budget *requestBudget,
-) (string, error) {
+) (string, []string, error) {
 	var lastErr error
+	// kept — лучший набор целых пунктов из неудачных попыток: недостающие догенерируем по одному.
+	var kept []string
 	for attempt := 1; attempt <= geminiMaxBatchAttempts; attempt++ {
 		prompt := userText
 		if attempt > 1 {
@@ -166,13 +168,16 @@ func generateDigestBatch(
 				log.Printf("Gemini пакет, попытка %d: %v", attempt, err)
 				continue
 			}
-			return "", err
+			return "", nil, err
 		}
 
 		raw := body
 		body = digest.SanitizeNewsBody(body)
 		if err := digest.ValidateNewsBody(body); err != nil {
 			lastErr = fmt.Errorf("%v (finish=%s)", err, reason)
+			if v := digest.ValidNewsBlocks(body); len(v) > len(kept) {
+				kept = v
+			}
 			// Без начала ответа «пунктов 0 из 6» не отличить от отказа модели
 			// или чужого формата — приходилось гадать по коду.
 			log.Printf("Gemini пакет, попытка %d: %v; начало ответа: %q", attempt, lastErr, responseSnippet(raw))
@@ -181,9 +186,9 @@ func generateDigestBatch(
 		if attempt > 1 {
 			log.Printf("Gemini пакет: успешно с попытки %d", attempt)
 		}
-		return body, nil
+		return body, nil, nil
 	}
-	return "", lastErr
+	return "", kept, lastErr
 }
 
 func generateDigestSequential(
@@ -192,6 +197,7 @@ func generateDigestSequential(
 	cfg config.Config,
 	feed string,
 	published []string,
+	kept []string,
 	budget *requestBudget,
 ) (string, error) {
 	var parts []string
@@ -199,7 +205,14 @@ func generateDigestSequential(
 	// выбранные в этом прогоне.
 	usedTitles := append([]string(nil), published...)
 
-	for n := 1; n <= digest.RequiredNewsItems; n++ {
+	for i, block := range kept {
+		block = singleNewsNumRE.ReplaceAllString(block, fmt.Sprintf("<b>%d. ", i+1))
+		parts = append(parts, block)
+		if title := digest.ExtractNewsTitle(block); title != "" {
+			usedTitles = append(usedTitles, title)
+		}
+	}
+	for n := len(kept) + 1; n <= digest.RequiredNewsItems; n++ {
 		body, err := generateSingleNewsItem(ctx, client, cfg, feed, n, usedTitles, budget)
 		if err != nil {
 			return "", err

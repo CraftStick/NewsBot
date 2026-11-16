@@ -311,3 +311,14 @@ func firstSentence(s string) string {
 	}
 	return strings.TrimSpace(string(r))
 }
+
+// ValidNewsBlocks — пункты, прошедшие проверку по отдельности (для добора недостающих).
+func ValidNewsBlocks(body string) []string {
+	var out []string
+	for _, b := range splitNewsBlocks(strings.TrimSpace(body)) {
+		if ValidateSingleNewsBlock(b) == nil && len([]rune(ExtractNewsTitle(b))) <= maxNewsTitleRunes {
+			out = append(out, b)
+		}
+	}
+	return out
+}
