@@ -19,6 +19,7 @@ type Config struct {
 	TelegramPreviewChatID string
 	GeminiAPIKey          string
 	GeminiBackupKey       string // запасной ключ (другой проект) на случай дневной квоты
+	GeminiBackupModel     string // у новых проектов Google нет моделей 2.5
 	GeminiModel           string
 	GeminiFallbackModel   string
 	CronSchedule          string
@@ -54,6 +55,10 @@ func Load() (Config, error) {
 		GeminiBackupKey:       strings.TrimSpace(os.Getenv("GEMINI_API_KEY_BACKUP")),
 		GeminiModel:           strings.TrimSpace(os.Getenv("GEMINI_MODEL")),
 		CronSchedule:          strings.TrimSpace(os.Getenv("CRON_SCHEDULE")),
+	}
+	cfg.GeminiBackupModel = "gemini-3.1-flash-lite"
+	if v := strings.TrimSpace(os.Getenv("GEMINI_MODEL_BACKUP")); v != "" {
+		cfg.GeminiBackupModel = v
 	}
 	// Запасная модель на случай перегрузки основной (503); "off" — отключить.
 	cfg.GeminiFallbackModel = "gemini-2.5-flash-lite"

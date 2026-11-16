@@ -52,6 +52,9 @@ const geminiOverloadsBeforeFallback = 2
 
 // model — какую модель использовать сейчас.
 func (b *requestBudget) model(cfg config.Config) string {
+	if b.backup != nil && cfg.GeminiBackupModel != "" {
+		return cfg.GeminiBackupModel
+	}
 	if b.fallback && cfg.GeminiFallbackModel != "" {
 		return cfg.GeminiFallbackModel
 	}

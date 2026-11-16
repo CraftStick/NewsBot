@@ -136,8 +136,11 @@ func TestBackupKeyOnDailyQuota(t *testing.T) {
 	t.Cleanup(func() { generate, geminiMinRequestGap = oldGen, oldGap })
 	var first *genai.Client
 	calls := 0
-	generate = func(_ context.Context, c *genai.Client, _ string, _ []*genai.Content, _ *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
+	generate = func(_ context.Context, c *genai.Client, model string, _ []*genai.Content, _ *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
 		calls++
+		if first != nil && model != "bm" {
+			t.Errorf("у запасного ключа модель %q, ждали bm", model)
+		}
 		if first == nil {
 			first = c
 			return nil, errors.New("Error 429 ... quotaId:GenerateRequestsPerDayPerProjectPerModel-FreeTier")
@@ -147,7 +150,7 @@ func TestBackupKeyOnDailyQuota(t *testing.T) {
 		}
 		return reply(item(1)), nil
 	}
-	cfg := config.Config{GeminiAPIKey: "k", GeminiBackupKey: "b", GeminiModel: "main"}
+	cfg := config.Config{GeminiAPIKey: "k", GeminiBackupKey: "b", GeminiBackupModel: "bm", GeminiModel: "main"}
 	client, _ := genai.NewClient(context.Background(), &genai.ClientConfig{APIKey: "k", Backend: genai.BackendGeminiAPI})
 	b := &requestBudget{left: 5}
 	if _, _, err := callGemini(context.Background(), client, cfg, "s", "u", 1, 100, b); err != nil || calls != 2 {
