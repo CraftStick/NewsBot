@@ -210,6 +210,9 @@ var (
 	bareNumbered = regexp.MustCompile(`(?m)^\s*(\d{1,2})[.)]\s+(.+?)\s*$`)
 )
 
+// NormalizeHeadings — экспорт normalizeNewsHeadings для разбора одиночных пунктов.
+func NormalizeHeadings(body string) string { return normalizeNewsHeadings(body) }
+
 // normalizeNewsHeadings приводит заголовки пунктов к виду <b>N. Заголовок</b>.
 // Парсер знает только его, и любое отклонение модели от формата давало
 // «пунктов 0 из 6» на каждой попытке — дайджест не собирался вовсе.

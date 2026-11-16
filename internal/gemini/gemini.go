@@ -298,14 +298,17 @@ func buildSingleNewsPrompt(feed string, number int, used []string) string {
 }
 
 func normalizeSingleNewsBlock(body string, number int) string {
-	body = strings.TrimSpace(body)
+	body = digest.NormalizeHeadings(strings.TrimSpace(body))
 	if digest.CountNewsItems(body) == 0 {
-		if !strings.HasPrefix(body, "<b>") {
-			body = fmt.Sprintf("<b>%d. %s</b>\n%s", number, body, "")
-		}
+		// Заголовок без номера («**Заголовок**», «Заголовок»): первая строка — заголовок, остальное — текст.
+		head, rest, _ := strings.Cut(body, "\n")
+		head = strings.TrimSpace(htmlTagRE.ReplaceAllString(head, ""))
+		body = fmt.Sprintf("<b>%d. %s</b>\n%s", number, head, strings.TrimSpace(rest))
 	}
 	return singleNewsNumRE.ReplaceAllString(body, fmt.Sprintf("<b>%d. ", number))
 }
+
+var htmlTagRE = regexp.MustCompile(`<[^>]+>`)
 
 // errQuotaExhausted — понятное сообщение вместо простыни от Gemini при исчерпании
 // дневной квоты (её всё равно бесполезно ретраить в пределах запуска).
