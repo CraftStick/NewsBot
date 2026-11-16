@@ -11,6 +11,10 @@ import (
 	"treesheild-newsbot/internal/news"
 )
 
+// minLinkScore — минимум два общих слова: «любую свободную» статью не подставляем,
+// без уверенного совпадения пункт остаётся без ссылки и дайджест не уходит.
+const minLinkScore = 24
+
 var (
 	hrefInBlock       = regexp.MustCompile(`(?i)<a\s+href="([^"]+)"`)
 	extractLinkRE     = regexp.MustCompile(`(?is)<a\s+href="[^"]+">(.*?)</a>`)
@@ -75,13 +79,30 @@ func titleMatchScore(a, b string) int {
 			continue
 		}
 		for _, w2 := range bw {
-			if w == w2 {
+			if sameStem(w, w2) {
 				common++
 				break
 			}
 		}
 	}
 	return common * 12
+}
+
+// sameStem: слова равны либо различаются только окончанием («дзен» / «дзена»).
+func sameStem(a, b string) bool {
+	if a == b {
+		return true
+	}
+	ra, rb := []rune(a), []rune(b)
+	n := min(len(ra), len(rb))
+	if n < 4 {
+		return false
+	}
+	p := 0
+	for p < n && ra[p] == rb[p] {
+		p++
+	}
+	return p >= n-1 && p >= 4
 }
 
 // findBestArticle ищет статью по заголовку и тексту; used — уже занятые URL.
@@ -107,43 +128,18 @@ func findBestArticle(title, bodyText string, articles []news.Article, used map[s
 				score = s
 			}
 		}
+		// Заголовок Gemini короткий и перефразирован — сверяем ещё и по тексту пункта.
+		if full := normalizeTitle(news.StripHTML(title + " " + bodyText)); full != query {
+			if s := titleMatchScore(full, normalizeTitle(a.Title)); s > score {
+				score = s
+			}
+		}
 		if score > bestScore {
 			bestScore = score
 			best = a
 		}
 	}
 	return best, bestScore
-}
-
-func pickUnusedArticle(articles []news.Article, used map[string]bool, preferForeign bool) *news.Article {
-	var best *news.Article
-	for i := range articles {
-		a := &articles[i]
-		if a.Link == "" || used[a.Link] {
-			continue
-		}
-		isForeign := news.RuNewsPriority(a.Title, a.Summary) == 0
-		if preferForeign && !isForeign {
-			continue
-		}
-		if !preferForeign && isForeign && best != nil {
-			continue
-		}
-		if best == nil || a.PublishedAt.After(best.PublishedAt) ||
-			(a.PublishedAt.Equal(best.PublishedAt) && a.RUPriority > best.RUPriority) {
-			best = a
-		}
-	}
-	if best != nil {
-		return best
-	}
-	for i := range articles {
-		a := &articles[i]
-		if a.Link != "" && !used[a.Link] {
-			return a
-		}
-	}
-	return nil
 }
 
 func EnsureNewsLinks(body string, articles []news.Article) string {
@@ -172,17 +168,8 @@ func EnsureNewsLinks(body string, articles []news.Article) string {
 		if url == "" {
 			var score int
 			matched, score = findBestArticle(title, text, articles, used)
-			if matched != nil && score >= 12 {
+			if matched != nil && score >= minLinkScore {
 				url = matched.Link
-			}
-		}
-
-		preferForeign := num == ForeignNewsItemNum
-		if url == "" {
-			matched = pickUnusedArticle(articles, used, preferForeign)
-			if matched != nil {
-				url = matched.Link
-				log.Printf("Пункт %d: ссылка подобрана по ленте (%s)", num, matched.Source)
 			}
 		}
 
