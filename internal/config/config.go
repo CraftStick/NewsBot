@@ -18,6 +18,7 @@ type Config struct {
 	TelegramToken         string
 	TelegramPreviewChatID string
 	GeminiAPIKey          string
+	GeminiBackupKey       string // запасной ключ (другой проект) на случай дневной квоты
 	GeminiModel           string
 	GeminiFallbackModel   string
 	CronSchedule          string
@@ -50,6 +51,7 @@ func Load() (Config, error) {
 		TelegramToken:         strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")),
 		TelegramPreviewChatID: strings.TrimSpace(os.Getenv("TELEGRAM_PREVIEW_CHAT_ID")),
 		GeminiAPIKey:          strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),
+		GeminiBackupKey:       strings.TrimSpace(os.Getenv("GEMINI_API_KEY_BACKUP")),
 		GeminiModel:           strings.TrimSpace(os.Getenv("GEMINI_MODEL")),
 		CronSchedule:          strings.TrimSpace(os.Getenv("CRON_SCHEDULE")),
 	}

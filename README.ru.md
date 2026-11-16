@@ -77,6 +77,7 @@ make build
 | `TELEGRAM_BOT_TOKEN` | да | — | Токен бота |
 | `TELEGRAM_PREVIEW_CHAT_ID` | да | — | Ваш числовой chat id |
 | `GEMINI_API_KEY` | да | — | Ключ Gemini API |
+| `GEMINI_API_KEY_BACKUP` | нет | — | Запасной ключ Gemini: включается, когда основной выбрал дневную квоту |
 | `GEMINI_MODEL` | нет | `gemini-2.5-flash` | Модель |
 | `GEMINI_FALLBACK_MODEL` | нет | `gemini-2.5-flash-lite` | Запасная модель после 2 перегрузок (503); `off` — выключить |
 | `TZ` | нет | `Europe/Moscow` | Часовой пояс cron |

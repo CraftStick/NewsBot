@@ -77,6 +77,7 @@ Copy the **second** message in DM into your channel.
 | `TELEGRAM_BOT_TOKEN` | yes | — | Bot token |
 | `TELEGRAM_PREVIEW_CHAT_ID` | yes | — | Your numeric chat id |
 | `GEMINI_API_KEY` | yes | — | Gemini API key |
+| `GEMINI_API_KEY_BACKUP` | no | — | Backup Gemini key, used when the main key hits its daily quota |
 | `GEMINI_MODEL` | no | `gemini-2.5-flash` | Model name |
 | `GEMINI_FALLBACK_MODEL` | no | `gemini-2.5-flash-lite` | Fallback model after 2 overloads (503); `off` disables |
 | `TZ` | no | `Europe/Moscow` | Timezone for cron |

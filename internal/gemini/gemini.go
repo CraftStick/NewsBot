@@ -42,8 +42,9 @@ type requestBudget struct {
 	minGap time.Duration
 	last   time.Time
 
-	overloads int  // подряд идущих перегрузок (503/429) за прогон
-	fallback  bool // переключились на запасную модель
+	overloads int           // подряд идущих перегрузок (503/429) за прогон
+	fallback  bool          // переключились на запасную модель
+	backup    *genai.Client // запасной ключ, если основной упёрся в дневную квоту
 }
 
 // geminiOverloadsBeforeFallback — сколько перегрузок подряд терпим на основной модели.
@@ -440,6 +441,9 @@ func callGemini(
 
 	var lastErr error
 	for try := 1; try <= geminiMaxAPIRetries; try++ {
+		if budget.backup != nil {
+			client = budget.backup
+		}
 		if ctx.Err() != nil {
 			return "", "", ctx.Err()
 		}
@@ -455,6 +459,13 @@ func callGemini(
 		result, err := generate(ctx, client, model, contents, config)
 		if err != nil {
 			lastErr = fmt.Errorf("generate content: %w", err)
+			if isQuotaExhausted(err) && cfg.GeminiBackupKey != "" && budget.backup == nil {
+				if bc, cerr := genai.NewClient(ctx, &genai.ClientConfig{APIKey: cfg.GeminiBackupKey, Backend: genai.BackendGeminiAPI}); cerr == nil {
+					log.Printf("Gemini: дневная квота основного ключа исчерпана — перехожу на запасной")
+					budget.backup = bc
+					continue
+				}
+			}
 			if isGeminiRetryable(err) && try < geminiMaxAPIRetries {
 				if budget.noteOverload(cfg) {
 					log.Printf("Gemini API: %v — переключаюсь на запасную модель %s", err, cfg.GeminiFallbackModel)

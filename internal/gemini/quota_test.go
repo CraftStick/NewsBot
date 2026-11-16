@@ -6,6 +6,10 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"google.golang.org/genai"
+
+	"treesheild-newsbot/internal/config"
 )
 
 func TestQuotaDetection(t *testing.T) {
@@ -123,5 +127,30 @@ func TestRequestBudgetPacing(t *testing.T) {
 	}
 	if elapsed := time.Since(start); elapsed < 2*gap {
 		t.Fatalf("три запроса прошли за %s, ожидали не меньше %s", elapsed, 2*gap)
+	}
+}
+
+func TestBackupKeyOnDailyQuota(t *testing.T) {
+	oldGen, oldGap := generate, geminiMinRequestGap
+	geminiMinRequestGap = 0
+	t.Cleanup(func() { generate, geminiMinRequestGap = oldGen, oldGap })
+	var first *genai.Client
+	calls := 0
+	generate = func(_ context.Context, c *genai.Client, _ string, _ []*genai.Content, _ *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
+		calls++
+		if first == nil {
+			first = c
+			return nil, errors.New("Error 429 ... quotaId:GenerateRequestsPerDayPerProjectPerModel-FreeTier")
+		}
+		if c == first {
+			t.Error("запрос ушёл с основным клиентом")
+		}
+		return reply(item(1)), nil
+	}
+	cfg := config.Config{GeminiAPIKey: "k", GeminiBackupKey: "b", GeminiModel: "main"}
+	client, _ := genai.NewClient(context.Background(), &genai.ClientConfig{APIKey: "k", Backend: genai.BackendGeminiAPI})
+	b := &requestBudget{left: 5}
+	if _, _, err := callGemini(context.Background(), client, cfg, "s", "u", 1, 100, b); err != nil || calls != 2 {
+		t.Fatalf("err=%v calls=%d", err, calls)
 	}
 }
