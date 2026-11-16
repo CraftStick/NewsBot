@@ -534,3 +534,21 @@ func DownloadImage(ctx context.Context, u string) []byte {
 	}
 	return b
 }
+
+// OnTopic — статья по сути темы дайджеста (не пресс-релиз и не просто упомянутый бренд).
+func OnTopic(a Article) bool { return a.Relevance >= relevanceTopic }
+
+// FilterOnTopic оставляет тематические статьи; если их меньше min, отдаёт всё как есть
+// (пунктов всегда шесть, лучше слабая тема, чем сорванный выпуск).
+func FilterOnTopic(all []Article, min int) []Article {
+	out := make([]Article, 0, len(all))
+	for _, a := range all {
+		if OnTopic(a) {
+			out = append(out, a)
+		}
+	}
+	if len(out) < min {
+		return all
+	}
+	return out
+}

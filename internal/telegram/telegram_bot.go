@@ -216,7 +216,7 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 	if update.CallbackQuery != nil {
 		q := update.CallbackQuery
 		if strings.HasPrefix(q.Data, cbPublish) && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
-			tc.handlePublish(q)
+			go tc.handlePublish(q) // публикация до минуты — не держим опрос
 			return
 		}
 		if q.Data == cbRegenerateDigest && q.Message != nil && tc.allowed(q.Message.Chat.ID) {

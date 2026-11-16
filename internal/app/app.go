@@ -114,6 +114,8 @@ func RunDigest(cfg config.Config) (err error) {
 		articles = fresh
 	}
 
+	articles = news.FilterOnTopic(articles, 12)
+
 	// kod.ru и Rozetked — основные источники, остальные ленты — резерв.
 	sort.SliceStable(articles, func(i, j int) bool { return isMain(articles[i]) && !isMain(articles[j]) })
 	run.Candidates = articles
@@ -138,8 +140,10 @@ func RunDigest(cfg config.Config) (err error) {
 	if err := recordDigestSent(now); err != nil {
 		log.Printf("не удалось записать отметку отправки: %v", err)
 	}
-	if err := digest.RecordHistory(newsHTML, now); err != nil {
-		log.Printf("не удалось запомнить темы дайджеста: %v", err)
+	if cfg.PublishCmd == "" { // с кнопкой темы запоминаются при публикации
+		if err := digest.RecordHistory(newsHTML, now); err != nil {
+			log.Printf("не удалось запомнить темы дайджеста: %v", err)
+		}
 	}
 	return nil
 }

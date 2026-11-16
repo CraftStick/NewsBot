@@ -20,6 +20,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
 	"treesheild-newsbot/internal/config"
+	"treesheild-newsbot/internal/digest"
 )
 
 var (
@@ -110,6 +111,9 @@ func publishPending(cfg config.Config, key string) error {
 	var p pendingPost
 	if json.Unmarshal(b, &p) == nil && strings.HasPrefix(p.Image, "/") {
 		_ = os.Remove(p.Image) // локальная шапка дайджеста
+	}
+	if err := digest.RecordHistory(p.HTML, time.Now()); err != nil {
+		log.Printf("не удалось запомнить темы дайджеста: %v", err)
 	}
 	return os.Remove(path)
 }
