@@ -1,8 +1,6 @@
 module treesheild-newsbot
 
-go 1.24
-
-toolchain go1.24.1
+go 1.26.0
 
 require (
 	github.com/go-co-op/gocron/v2 v2.16.1
@@ -11,6 +9,7 @@ require (
 	github.com/mmcdole/gofeed v1.3.0
 	github.com/robfig/cron/v3 v3.0.1
 	google.golang.org/genai v1.57.0
+	modernc.org/sqlite v1.62.0
 )
 
 require (
@@ -19,6 +18,7 @@ require (
 	cloud.google.com/go/compute/metadata v0.5.0 // indirect
 	github.com/PuerkitoBio/goquery v1.8.0 // indirect
 	github.com/andybalholm/cascadia v1.3.1 // indirect
+	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/s2a-go v0.1.8 // indirect
@@ -27,15 +27,21 @@ require (
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mmcdole/goxpp v1.1.1-0.20240225020742-a0c311522b23 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/ncruces/go-strftime v1.1.0 // indirect
+	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
-	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/grpc v1.66.2 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
+	modernc.org/libc v1.80.1 // indirect
+	modernc.org/mathutil v1.7.1 // indirect
+	modernc.org/memory v1.12.1 // indirect
 )

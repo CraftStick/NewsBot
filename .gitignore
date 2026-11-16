@@ -6,3 +6,5 @@ preview_digest.html
 .last_digest.tmp
 .digest_history
 .digest_history.tmp
+
+digest.db*

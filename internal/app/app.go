@@ -18,6 +18,7 @@ import (
 	"treesheild-newsbot/internal/digest"
 	"treesheild-newsbot/internal/gemini"
 	"treesheild-newsbot/internal/news"
+	"treesheild-newsbot/internal/store"
 	"treesheild-newsbot/internal/telegram"
 )
 
@@ -66,7 +67,17 @@ func StartScheduler(cfg config.Config) (gocron.Scheduler, error) {
 	return scheduler, nil
 }
 
-func RunDigest(cfg config.Config) error {
+func RunDigest(cfg config.Config) (err error) {
+	run := store.Run{StartedAt: time.Now()}
+	defer func() {
+		run.Duration = time.Since(run.StartedAt)
+		if err != nil {
+			run.Err = err.Error()
+		}
+		if serr := store.Save(store.Path(), run); serr != nil {
+			log.Printf("не удалось записать журнал запуска: %v", serr)
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
@@ -74,6 +85,7 @@ func RunDigest(cfg config.Config) error {
 	log.Printf("Сбор новостей за неделю (с %s)…", now.Add(-7*24*time.Hour).Format("02.01.2006"))
 
 	articles, failed, err := news.FetchWeeklyArticles(ctx, now)
+	run.FeedsFail = failed
 	if 2*len(failed) >= len(news.FeedNames()) {
 		telegram.NotifyWarning(cfg, fmt.Sprintf("⚠️ Не ответили %d лент: %s", len(failed), strings.Join(failed, ", ")))
 	}
@@ -101,6 +113,7 @@ func RunDigest(cfg config.Config) error {
 		articles = fresh
 	}
 
+	run.Candidates = articles
 	pool := news.ArticlesForPrompt(articles)
 	log.Printf("Запрос к Gemini (~%d симв., %d статей)…", len(news.BuildDigestPrompt(articles, 0)), len(pool))
 
@@ -114,6 +127,7 @@ func RunDigest(cfg config.Config) error {
 		return fmt.Errorf("ссылки в заголовках: %w", err)
 	}
 
+	run.DigestHTML = newsHTML
 	log.Printf("Отправка превью в чат %s…", cfg.TelegramPreviewChatID)
 	if err := telegram.PublishPreview(cfg, newsHTML); err != nil {
 		return err
