@@ -194,3 +194,19 @@ func similarToAny(title string, seen []map[string]bool) bool {
 	}
 	return false
 }
+
+// WeekRecap — блок «уже выходило на неделе»: темы одиночных постов за последние 6 суток
+// (раньше — прошлый дайджест). Пусто, если постов не было.
+func WeekRecap(history []publishedItem, now time.Time) string {
+	var b strings.Builder
+	for _, it := range history {
+		if it.Link == "" || it.Title == "" || now.Sub(it.SentAt) > 6*24*time.Hour {
+			continue
+		}
+		b.WriteString("\n• <a href=\"" + html.EscapeString(it.Link) + "\">" + html.EscapeString(it.Title) + "</a>")
+	}
+	if b.Len() == 0 {
+		return ""
+	}
+	return "\n\n<b>🗓 Также на неделе</b>" + b.String()
+}

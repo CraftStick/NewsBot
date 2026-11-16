@@ -143,8 +143,9 @@ func RunDigest(cfg config.Config) (err error) {
 	}
 
 	run.DigestHTML = newsHTML
+	sendHTML := newsHTML + digest.WeekRecap(history, now) // в историю пишем без итогового блока
 	log.Printf("Отправка превью в чат %s…", cfg.TelegramPreviewChatID)
-	if err := telegram.PublishPreview(cfg, newsHTML); err != nil {
+	if err := telegram.PublishPreview(cfg, sendHTML); err != nil {
 		return err
 	}
 	if err := recordDigestSent(now); err != nil {

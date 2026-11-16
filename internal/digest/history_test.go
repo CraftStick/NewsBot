@@ -2,6 +2,7 @@ package digest
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -90,5 +91,20 @@ func TestHistoryRoundTrip(t *testing.T) {
 	next := []news.Article{{Title: "Яндекс Сим", Link: "https://example.com/1"}}
 	if left := DropPublished(next, got); len(left) != 0 {
 		t.Fatalf("повтор не отсеян: %+v", left)
+	}
+}
+
+func TestWeekRecap(t *testing.T) {
+	now := time.Now()
+	h := []publishedItem{
+		{Title: "Старое", Link: "https://a/1", SentAt: now.Add(-7 * 24 * time.Hour)},
+		{Title: "Свежее & важное", Link: "https://a/2", SentAt: now.Add(-24 * time.Hour)},
+	}
+	got := WeekRecap(h, now)
+	if strings.Contains(got, "Старое") || !strings.Contains(got, "Свежее &amp; важное") {
+		t.Fatalf("recap: %q", got)
+	}
+	if WeekRecap(nil, now) != "" {
+		t.Fatal("пусто без постов")
 	}
 }
