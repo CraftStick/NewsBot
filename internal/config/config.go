@@ -21,6 +21,7 @@ type Config struct {
 	GeminiModel           string
 	GeminiFallbackModel   string
 	CronSchedule          string
+	SingleCron            string // одиночные посты в будни; "" = выключено
 	Timezone              *time.Location
 	PhotoEnabled          bool
 }
@@ -60,6 +61,14 @@ func Load() (Config, error) {
 	}
 	if cfg.GeminiModel == "" {
 		cfg.GeminiModel = "gemini-2.5-flash"
+	}
+	// Пн–Чт в 12:00 (в пятницу — дайджест); SINGLE_CRON=off отключает.
+	cfg.SingleCron = "0 12 * * 1-4"
+	if v, ok := os.LookupEnv("SINGLE_CRON"); ok {
+		cfg.SingleCron = strings.TrimSpace(v)
+		if strings.EqualFold(cfg.SingleCron, "off") {
+			cfg.SingleCron = ""
+		}
 	}
 	if cfg.CronSchedule == "" {
 		cfg.CronSchedule = defaultCronSchedule

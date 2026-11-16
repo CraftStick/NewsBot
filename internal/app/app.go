@@ -61,6 +61,21 @@ func StartScheduler(cfg config.Config) (gocron.Scheduler, error) {
 		return nil, fmt.Errorf("cron %q: %w", cfg.CronSchedule, err)
 	}
 
+	if cfg.SingleCron != "" {
+		_, err = scheduler.NewJob(
+			gocron.CronJob(cfg.SingleCron, false),
+			gocron.NewTask(func() {
+				if err := RunSingle(cfg); err != nil {
+					log.Printf("ошибка одиночного поста: %v", err)
+					telegram.NotifyFailure(cfg, err)
+				}
+			}),
+			gocron.WithName("single-post"),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("single cron %q: %w", cfg.SingleCron, err)
+		}
+	}
 	scheduler.Start()
 	log.Printf("Планировщик: cron=%q (%s) → личка %s. Кнопка /digest в боте. Ctrl+C — выход.",
 		cfg.CronSchedule, cfg.Timezone, cfg.TelegramPreviewChatID)

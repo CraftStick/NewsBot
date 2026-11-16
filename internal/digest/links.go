@@ -238,3 +238,12 @@ func ValidateNewsLinks(body string) error {
 	}
 	return nil
 }
+
+// ValidateSingleLink — у одиночного поста должна быть ссылка на источник.
+func ValidateSingleLink(body string) error {
+	blocks := splitNewsBlocks(body)
+	if len(blocks) == 0 || extractNewsURL(blocks[0]) == "" {
+		return fmt.Errorf("пост без ссылки на источник")
+	}
+	return nil
+}

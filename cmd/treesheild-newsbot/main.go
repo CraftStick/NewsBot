@@ -25,6 +25,7 @@ func main() {
 	once := flag.Bool("preview", false, "сразу собрать дайджест и отправить в личку")
 	runIn := flag.Duration("in", 0, "через сколько отправить в личку (например 1m, 30s)")
 	cronOverride := flag.String("cron", "", "cron (5 полей), перебивает CRON_SCHEDULE")
+	single := flag.Bool("single", false, "собрать один пост и отправить превью в личку, затем выйти")
 	flag.Parse()
 
 	if *once && *runIn > 0 {
@@ -55,6 +56,11 @@ func main() {
 	regenerate := func() error { return app.RunDigest(cfg) }
 
 	switch {
+	case *single:
+		if err := app.RunSingle(cfg); err != nil {
+			log.Fatalf("пост: %v", err)
+		}
+		return
 	case *once:
 		if err := app.RunDigest(cfg); err != nil {
 			log.Fatalf("дайджест: %v", err)
