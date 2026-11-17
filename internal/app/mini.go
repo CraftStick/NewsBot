@@ -126,7 +126,7 @@ func RunMini(cfg config.Config) (err error) {
 		log.Printf("мини-посты: первый запуск, запомнил %d записей", len(seen))
 		return writeSeen(path, seen)
 	}
-	for _, a := range newMini(arts, seen, miniMaxPerTick, time.Now().Add(-miniMaxAge)) {
+	for _, a := range newMini(arts, seen, miniMaxPerTick, time.Now().Add(-maxAge())) {
 		photo := news.DownloadImage(ctx, news.ImageFor(ctx, a)) // nil — уйдёт текстом
 		if err := telegram.SendMini(cfg, miniHTML(a), photo); err != nil {
 			return err // не отмечена — уйдёт на следующем проходе
@@ -138,4 +138,12 @@ func RunMini(cfg config.Config) (err error) {
 		log.Printf("мини-пост: %s", a.Title)
 	}
 	return nil
+}
+
+// maxAge — окно свежести; MINI_MAX_AGE (например 48h) нужен для ручной проверки.
+func maxAge() time.Duration {
+	if d, err := time.ParseDuration(os.Getenv("MINI_MAX_AGE")); err == nil && d > 0 {
+		return d
+	}
+	return miniMaxAge
 }

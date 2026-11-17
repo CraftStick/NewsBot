@@ -11,9 +11,12 @@ import (
 )
 
 // miniFeeds — источники мини-постов.
-var miniFeeds = []struct{ Name, URL string }{
-	{"Код Дурова", "https://kod.ru/rss"},
-	{"Gram News", "https://gramnews.org/ru/rss"},
+var miniFeeds = []struct {
+	Name, URL string
+	All       bool // без фильтра по теме
+}{
+	{"Код Дурова", "https://kod.ru/rss", false},
+	{"Gram News", "https://gramnews.org/ru/rss", true},
 }
 
 // FetchMini — свежие записи источников мини-постов, новые первыми.
@@ -38,7 +41,7 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 			title, sum := strings.TrimSpace(it.Title), miniSummary(it)
 			// Только по теме канала (блокировки, приватность, ИБ), как в дайджесте.
 			rel := articleRelevance(title, sum)
-			if rel < relevanceTopic {
+			if !src.All && rel < relevanceTopic {
 				continue
 			}
 			out = append(out, Article{Source: src.Name, Title: title, Link: it.Link,
