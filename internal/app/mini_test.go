@@ -52,11 +52,11 @@ func TestMiniHTMLFitsCaption(t *testing.T) {
 
 func TestMiniEmoji(t *testing.T) {
 	for title, want := range map[string]string{
-		"Роскомнадзор заблокировал сервис": "🚫",
-		"Утечка данных у банка":            "🔒",
+		"Роскомнадзор заблокировал сервис": "⛔️",
+		"Утечка данных у банка":            "🛡️",
 		"Курс рубля вырос":                 "📰",
 	} {
-		if got := miniEmoji(news.Article{Title: title}); got != want {
+		if got := miniEmoji(news.Article{Title: title}); !strings.Contains(got, want) {
 			t.Errorf("%q: %s, want %s", title, got, want)
 		}
 	}

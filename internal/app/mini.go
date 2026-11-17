@@ -153,21 +153,25 @@ func maxAge() time.Duration {
 func miniEmoji(a news.Article) string {
 	t := strings.ToLower(a.Title + " " + a.Summary)
 	rules := []struct {
-		emoji string
-		words []string
+		id, fallback string
+		words        []string
 	}{
-		{"🚫", []string{"блокир", "роскомнадзор", "ркн", "запрет", "замедл", "впн", "vpn"}},
-		{"🔒", []string{"утечк", "взлом", "хакер", "уязвим", "кибер", "вирус", "шифр", "приватн", "персональн", "мошенн", "фишинг"}},
-		{"⚖️", []string{"закон", "суд", "штраф", "госдум", "регулир"}},
-		{"📱", []string{"telegram", "телеграм", "whatsapp", "мессенджер"}},
-		{"🤖", []string{"нейросет", "искусственн", "openai", "chatgpt"}},
+		{"5348435100541404792", "⛔️", []string{"блокир", "роскомнадзор", "ркн", "запрет", "замедл", "впн", "vpn"}},
+		{"5348230282140993341", "🛡️", []string{"утечк", "взлом", "хакер", "уязвим", "кибер", "вирус", "шифр", "приватн", "персональн", "мошенн", "фишинг"}},
+		{"5348414471813483004", "☕️", []string{"закон", "суд", "штраф", "госдум", "регулир"}},
+		{"5348482508390419372", "📱", []string{"telegram", "телеграм", "whatsapp", "мессенджер"}},
+		{"5348302871383263062", "🧠", []string{"нейросет", "искусственн", "openai", "chatgpt"}},
 	}
 	for _, r := range rules {
 		for _, w := range r.words {
 			if strings.Contains(t, w) {
-				return r.emoji
+				return tgEmoji(r.id, r.fallback)
 			}
 		}
 	}
-	return "📰"
+	return tgEmoji("5951891646445523477", "📰")
+}
+
+func tgEmoji(id, fallback string) string {
+	return `<tg-emoji emoji-id="` + id + `">` + fallback + `</tg-emoji>`
 }
