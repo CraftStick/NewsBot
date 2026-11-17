@@ -96,24 +96,19 @@ func writeSeen(path string, links []string) error {
 // captionMax — лимит подписи к фото в Telegram.
 const captionMax = 1024
 
-// miniHTML — заголовок-ссылка, описание и источник; целиком укладывается в подпись к фото.
+// miniHTML — жирный заголовок, описание и источник-ссылка; целиком укладывается в подпись к фото.
 func miniHTML(a news.Article) string {
 	sum := []rune(a.Summary)
 	for {
-		link := html.EscapeString(a.Link)
-		title, src := html.EscapeString(a.Title), html.EscapeString(a.Source)
-		// Есть описание — заголовок это настоящий заголовок и он ссылка. Нет описания (пост
-		// канала: заголовок = весь текст) — текст обычный, кликабелен только источник.
+		s := fmt.Sprintf(`%s  <b>%s</b>`, miniEmoji(a), html.EscapeString(a.Title))
 		if len(sum) > 0 {
-			s := fmt.Sprintf(`%s  <b><a href="%s">%s</a></b>`, miniEmoji(a), link, title) +
-				"\n\n" + html.EscapeString(string(sum)) + "\n\n<i>" + src + "</i>"
-			if len([]rune(s)) <= captionMax {
-				return s
-			}
-			sum = append(sum[:len(sum)*8/10-1], '…') // ужимаем описание, пока не влезет
-			continue
+			s += "\n\n" + html.EscapeString(string(sum))
 		}
-		return fmt.Sprintf(`%s  <b>%s</b>`, miniEmoji(a), title) + fmt.Sprintf("\n\n<a href=\"%s\"><i>%s</i></a>", link, src)
+		s += fmt.Sprintf("\n\n<a href=\"%s\"><i>%s</i></a>", html.EscapeString(a.Link), html.EscapeString(a.Source))
+		if len([]rune(s)) <= captionMax || len(sum) == 0 {
+			return s
+		}
+		sum = append(sum[:len(sum)*8/10-1], '…') // ужимаем описание, пока не влезет
 	}
 }
 
