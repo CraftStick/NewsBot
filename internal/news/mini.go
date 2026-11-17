@@ -36,7 +36,7 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 				continue
 			}
 			out = append(out, Article{Source: src.Name, Title: strings.TrimSpace(it.Title),
-				Link: it.Link, Summary: shortSummary(it), PublishedAt: *it.PublishedParsed})
+				Link: it.Link, Summary: miniSummary(it), PublishedAt: *it.PublishedParsed})
 		}
 	}
 	if len(errs) == len(miniFeeds) {
@@ -44,4 +44,13 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].PublishedAt.After(out[j].PublishedAt) })
 	return out, nil
+}
+
+// miniSummary — описание целиком; в подпись под фото влезает ~1000 знаков, итог ужмёт app.
+func miniSummary(it *gofeed.Item) string {
+	d := it.Description
+	if d == "" {
+		d = it.Content
+	}
+	return truncate(StripHTML(d), 700)
 }

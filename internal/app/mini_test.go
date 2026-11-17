@@ -38,3 +38,14 @@ func TestSeenRoundTripAndHTML(t *testing.T) {
 		t.Fatal(h)
 	}
 }
+
+func TestMiniHTMLFitsCaption(t *testing.T) {
+	a := news.Article{Title: "T", Link: "http://x", Source: "S", Summary: strings.Repeat("слово ", 400)}
+	if n := len([]rune(miniHTML(a))); n > captionMax {
+		t.Fatalf("подпись %d > %d", n, captionMax)
+	}
+	short := miniHTML(news.Article{Title: "T", Link: "http://x", Source: "S", Summary: "коротко"})
+	if !strings.Contains(short, "коротко") || strings.Contains(short, "…") {
+		t.Fatal(short)
+	}
+}

@@ -62,14 +62,23 @@ func writeSeen(path string, links []string) error {
 	return os.Rename(tmp, path)
 }
 
-// miniHTML — заголовок-ссылка и короткая выжимка.
+// captionMax — лимит подписи к фото в Telegram.
+const captionMax = 1024
+
+// miniHTML — заголовок-ссылка, описание и источник; целиком укладывается в подпись к фото.
 func miniHTML(a news.Article) string {
-	s := fmt.Sprintf(`<b><a href="%s">%s</a></b>`, html.EscapeString(a.Link), html.EscapeString(a.Title))
-	if a.Summary != "" {
-		s += "\n\n" + html.EscapeString(a.Summary)
+	sum := []rune(a.Summary)
+	for {
+		s := fmt.Sprintf(`<b><a href="%s">%s</a></b>`, html.EscapeString(a.Link), html.EscapeString(a.Title))
+		if len(sum) > 0 {
+			s += "\n\n" + html.EscapeString(string(sum))
+		}
+		s += "\n\n<i>" + html.EscapeString(a.Source) + "</i>"
+		if len([]rune(s)) <= captionMax || len(sum) == 0 {
+			return s
+		}
+		sum = append(sum[:len(sum)*8/10-1], '…') // ужимаем описание, пока не влезет
 	}
-	s += "\n\n<i>" + html.EscapeString(a.Source) + "</i>"
-	return s
 }
 
 // newMini — непоказанные статьи, старые первыми, не больше max.
@@ -118,7 +127,8 @@ func RunMini(cfg config.Config) (err error) {
 		return writeSeen(path, seen)
 	}
 	for _, a := range newMini(arts, seen, miniMaxPerTick, time.Now().Add(-miniMaxAge)) {
-		if err := telegram.SendMini(cfg, miniHTML(a)); err != nil {
+		photo := news.DownloadImage(ctx, news.ImageFor(ctx, a)) // nil — уйдёт текстом
+		if err := telegram.SendMini(cfg, miniHTML(a), photo); err != nil {
 			return err // не отмечена — уйдёт на следующем проходе
 		}
 		seen = append(seen, a.Link)
