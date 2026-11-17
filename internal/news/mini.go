@@ -6,6 +6,7 @@ import (
 	"log"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/mmcdole/gofeed"
 )
@@ -38,7 +39,7 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 			if it.Link == "" || strings.TrimSpace(it.Title) == "" || it.PublishedParsed == nil {
 				continue
 			}
-			title, sum := strings.TrimSpace(it.Title), miniSummary(it)
+			title, sum := cleanMiniText(it.Title, miniSummary(it))
 			// Только по теме канала (блокировки, приватность, ИБ), как в дайджесте.
 			rel := articleRelevance(title, sum)
 			if !src.All && rel < relevanceTopic {
@@ -62,4 +63,19 @@ func miniSummary(it *gofeed.Item) string {
 		d = it.Content
 	}
 	return truncate(StripHTML(d), 700)
+}
+
+// cleanMiniText: у постов Telegram-каналов заголовок равен тексту и начинается со
+// своего эмодзи — убираем его (мы ставим свой) и не повторяем заголовок в описании.
+func cleanMiniText(title, sum string) (string, string) {
+	lead := func(s string) string {
+		return strings.TrimSpace(strings.TrimLeftFunc(s, func(r rune) bool {
+			return !unicode.IsLetter(r) && !unicode.IsDigit(r) && !strings.ContainsRune("«\"(", r)
+		}))
+	}
+	title, sum = lead(strings.TrimSpace(title)), lead(sum)
+	if strings.HasPrefix(sum, title) || strings.HasPrefix(title, sum) {
+		sum = ""
+	}
+	return title, sum
 }
