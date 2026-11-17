@@ -17,7 +17,6 @@ var miniFeeds = []struct {
 	All       bool // без фильтра по теме
 }{
 	{"Код Дурова", "https://kod.ru/rss", false},
-	{"Gram News", "https://gramnews.org/ru/rss", true},
 }
 
 // FetchMini — свежие записи источников мини-постов, новые первыми.

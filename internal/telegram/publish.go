@@ -51,8 +51,6 @@ func (tc *telegramController) setPublishButton(html string, photo []byte) {
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("📣 Опубликовать", cbPublish+key),
 			tgbotapi.NewInlineKeyboardButtonData("🗑 Пропустить", cbSkip+key)),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("⏰ Отложить", cbLater+key)),
 	}
 }
 
@@ -101,7 +99,6 @@ func skipPending(key string) {
 	}
 	_ = os.Remove(filepath.Join(pendingDir, key+".json"))
 	_ = os.Remove(filepath.Join(pendingDir, key+".jpg"))
-	_ = os.Remove(atPath(key))
 }
 
 // publishPending отдаёт сохранённый пост юзерботу. Файл удаляется только после успеха:
@@ -131,7 +128,6 @@ func publishPending(cfg config.Config, key string) error {
 	if err := digest.RecordHistory(p.HTML, time.Now()); err != nil {
 		log.Printf("не удалось запомнить темы дайджеста: %v", err)
 	}
-	_ = os.Remove(atPath(key))
 	return os.Remove(path)
 }
 
