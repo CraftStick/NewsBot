@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -69,7 +70,7 @@ const captionMax = 1024
 func miniHTML(a news.Article) string {
 	sum := []rune(a.Summary)
 	for {
-		s := fmt.Sprintf(`<b><a href="%s">%s</a></b>`, html.EscapeString(a.Link), html.EscapeString(a.Title))
+		s := fmt.Sprintf(`%s <b><a href="%s">%s</a></b>`, miniEmoji(a), html.EscapeString(a.Link), html.EscapeString(a.Title))
 		if len(sum) > 0 {
 			s += "\n\n" + html.EscapeString(string(sum))
 		}
@@ -146,4 +147,27 @@ func maxAge() time.Duration {
 		return d
 	}
 	return miniMaxAge
+}
+
+// miniEmoji — значок по теме новости; первое совпавшее правило, иначе 📰.
+func miniEmoji(a news.Article) string {
+	t := strings.ToLower(a.Title + " " + a.Summary)
+	rules := []struct {
+		emoji string
+		words []string
+	}{
+		{"🚫", []string{"блокир", "роскомнадзор", "ркн", "запрет", "замедл", "впн", "vpn"}},
+		{"🔒", []string{"утечк", "взлом", "хакер", "уязвим", "кибер", "вирус", "шифр", "приватн", "персональн", "мошенн", "фишинг"}},
+		{"⚖️", []string{"закон", "суд", "штраф", "госдум", "регулир"}},
+		{"📱", []string{"telegram", "телеграм", "whatsapp", "мессенджер"}},
+		{"🤖", []string{"нейросет", "искусственн", "openai", "chatgpt"}},
+	}
+	for _, r := range rules {
+		for _, w := range r.words {
+			if strings.Contains(t, w) {
+				return r.emoji
+			}
+		}
+	}
+	return "📰"
 }

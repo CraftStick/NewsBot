@@ -49,3 +49,15 @@ func TestMiniHTMLFitsCaption(t *testing.T) {
 		t.Fatal(short)
 	}
 }
+
+func TestMiniEmoji(t *testing.T) {
+	for title, want := range map[string]string{
+		"Роскомнадзор заблокировал сервис": "🚫",
+		"Утечка данных у банка":            "🔒",
+		"Курс рубля вырос":                 "📰",
+	} {
+		if got := miniEmoji(news.Article{Title: title}); got != want {
+			t.Errorf("%q: %s, want %s", title, got, want)
+		}
+	}
+}
