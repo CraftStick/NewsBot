@@ -70,7 +70,7 @@ const captionMax = 1024
 func miniHTML(a news.Article) string {
 	sum := []rune(a.Summary)
 	for {
-		s := fmt.Sprintf(`%s <b><a href="%s">%s</a></b>`, miniEmoji(a), html.EscapeString(a.Link), html.EscapeString(a.Title))
+		s := fmt.Sprintf(`%s  <b><a href="%s">%s</a></b>`, miniEmoji(a), html.EscapeString(a.Link), html.EscapeString(a.Title))
 		if len(sum) > 0 {
 			s += "\n\n" + html.EscapeString(string(sum))
 		}
