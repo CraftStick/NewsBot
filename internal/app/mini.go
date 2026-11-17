@@ -204,6 +204,9 @@ func maxAge() time.Duration {
 
 // miniEmoji — значок по теме новости; первое совпавшее правило, иначе 📰.
 func miniEmoji(a news.Article) string {
+	if a.EmojiID != "" {
+		return tgEmoji(a.EmojiID, a.EmojiChar)
+	}
 	t := " " + strings.ToLower(a.Title+" "+a.Summary)
 	rules := []struct {
 		id, fallback string

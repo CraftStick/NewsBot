@@ -17,10 +17,11 @@ var miniChannels = []struct{ Name, Handle string }{
 }
 
 var (
-	reChanText = regexp.MustCompile(`(?s)^([^"]+)".*?<div class="tgme_widget_message_text js-message_text"[^>]*>(.*?)</div>.*?<time[^>]*datetime="([^"]+)"`)
-	reTag      = regexp.MustCompile(`<[^>]+>`)
-	reBR       = regexp.MustCompile(`<br\s*/?>`)
-	reURLLine  = regexp.MustCompile(`^\S*\s*https?://\S+$`)
+	reChanText  = regexp.MustCompile(`(?s)^([^"]+)".*?<div class="tgme_widget_message_text js-message_text"[^>]*>(.*?)</div>.*?<time[^>]*datetime="([^"]+)"`)
+	reTag       = regexp.MustCompile(`<[^>]+>`)
+	reLeadEmoji = regexp.MustCompile(`^(?:<b>)?<tg-emoji emoji-id="(\d+)">.*?<b>([^<]+)</b>`)
+	reBR        = regexp.MustCompile(`<br\s*/?>`)
+	reURLLine   = regexp.MustCompile(`^\S*\s*https?://\S+$`)
 )
 
 // fetchChannel разбирает t.me/s/<канал>; ссылка записи — на сам пост.
@@ -53,8 +54,11 @@ func fetchChannel(ctx context.Context, name, handle string) ([]Article, error) {
 		if title == "" {
 			continue
 		}
-		out = append(out, Article{Source: name, Title: title, Link: "https://t.me/" + m[1],
-			Summary: sum, PublishedAt: t})
+		a := Article{Source: name, Title: title, Link: "https://t.me/" + m[1], Summary: sum, PublishedAt: t}
+		if e := reLeadEmoji.FindStringSubmatch(strings.TrimSpace(m[2])); e != nil { // свой анимированный эмодзи поста
+			a.EmojiID, a.EmojiChar = e[1], e[2]
+		}
+		out = append(out, a)
 	}
 	return out, nil
 }

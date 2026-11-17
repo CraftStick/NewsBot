@@ -9,3 +9,10 @@ func TestTidyPost(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestLeadEmoji(t *testing.T) {
+	m := reLeadEmoji.FindStringSubmatch(`<b><tg-emoji emoji-id="535"><i class="emoji" style="x"><b>🤗</b></i></tg-emoji></b><b> Выдыхайте</b>`)
+	if m == nil || m[1] != "535" || m[2] != "🤗" {
+		t.Fatalf("got %q", m)
+	}
+}

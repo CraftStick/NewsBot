@@ -59,6 +59,8 @@ type Article struct {
 	RUPriority  int // выше = приоритетнее для дайджеста про РФ
 	Relevance   int // relevanceTopic / relevanceEntity
 	Image       string
+	EmojiID     string // свой анимированный эмодзи поста канала
+	EmojiChar   string
 }
 
 // topicKeywords — однозначная суть дайджеста: доступ, приватность,
