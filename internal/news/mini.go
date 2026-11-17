@@ -79,7 +79,7 @@ func cleanMiniText(title, sum string) (string, string) {
 	case strings.HasPrefix(fs, ft) && !strings.HasSuffix(title, "…") || strings.HasPrefix(ft, fs):
 		sum = ""
 	case strings.HasSuffix(title, "…") && strings.HasPrefix(fs, ft):
-		title, sum = sum, "" // заголовок у Gram News — обрезанный текст поста; берём текст целиком
+		title, sum = firstSentence(sum) // заголовок у Gram News — обрезанный текст поста: первое предложение в заголовок, остальное под него
 	}
 	return title, sum
 }
@@ -92,4 +92,14 @@ func fold(s string) string {
 		}
 		return -1
 	}, strings.ToLower(s))
+}
+
+// firstSentence делит текст по первому концу предложения; без него весь текст идёт заголовком.
+func firstSentence(s string) (head, tail string) {
+	for i, r := range s {
+		if (r == '.' || r == '!' || r == '?') && i >= 20 && i+1 < len(s) && s[i+1] == ' ' {
+			return s[:i+1], strings.TrimSpace(s[i+1:])
+		}
+	}
+	return s, ""
 }
