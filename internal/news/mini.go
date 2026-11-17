@@ -35,8 +35,14 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 			if it.Link == "" || strings.TrimSpace(it.Title) == "" || it.PublishedParsed == nil {
 				continue
 			}
-			out = append(out, Article{Source: src.Name, Title: strings.TrimSpace(it.Title),
-				Link: it.Link, Summary: miniSummary(it), PublishedAt: *it.PublishedParsed})
+			title, sum := strings.TrimSpace(it.Title), miniSummary(it)
+			// Только по теме канала (блокировки, приватность, ИБ), как в дайджесте.
+			rel := articleRelevance(title, sum)
+			if rel < relevanceTopic {
+				continue
+			}
+			out = append(out, Article{Source: src.Name, Title: title, Link: it.Link,
+				Summary: sum, PublishedAt: *it.PublishedParsed, Relevance: rel})
 		}
 	}
 	if len(errs) == len(miniFeeds) {
