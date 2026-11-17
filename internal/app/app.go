@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"sort"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -62,13 +63,41 @@ func StartScheduler(cfg config.Config) (gocron.Scheduler, error) {
 		return nil, fmt.Errorf("cron %q: %w", cfg.CronSchedule, err)
 	}
 
+	if os.Getenv("MINI_POSTS") != "off" {
+		_, err = scheduler.NewJob(
+			gocron.DurationJob(5*time.Minute),
+			gocron.NewTask(func() {
+				if err := RunMini(cfg); err != nil {
+					log.Printf("мини-посты: %v", err)
+				}
+			}),
+			gocron.WithName("kod-mini"),
+			gocron.WithSingletonMode(gocron.LimitModeReschedule),
+			gocron.WithStartAt(gocron.WithStartImmediately()),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("мини-посты: %w", err)
+		}
+	}
 	scheduler.Start()
 	log.Printf("Планировщик: дайджест cron=%q (%s) → личка %s. Команда /digest в боте. Ctrl+C — выход.",
 		cfg.CronSchedule, cfg.Timezone, cfg.TelegramPreviewChatID)
 	return scheduler, nil
 }
 
+var digestMu sync.Mutex
+
 func RunDigest(cfg config.Config) (err error) {
+	// cron, catch-up и кнопка «Другой дайджест» не должны идти одновременно.
+	if !digestMu.TryLock() {
+		return fmt.Errorf("дайджест уже собирается")
+	}
+	defer digestMu.Unlock()
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("паника: %v", r)
+		}
+	}()
 	run := store.Run{StartedAt: time.Now()}
 	defer func() {
 		run.Duration = time.Since(run.StartedAt)
