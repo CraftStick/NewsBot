@@ -273,8 +273,7 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 
 	switch strings.TrimSpace(strings.ToLower(update.Message.Text)) {
 	case "/start", "/help":
-		const welcome = "Привет! Я собираю пятничный дайджест.\n\n" +
-			"<b>/digest</b> — собрать новый дайджест\n" +
+		const welcome = "<b>/digest</b> — собрать новый дайджест\n" +
 			"<b>/post</b> — прислать одиночный пост\n" +
 			"Или нажмите кнопку ниже"
 		_ = tc.sendHTML(chatID, welcome, true)
