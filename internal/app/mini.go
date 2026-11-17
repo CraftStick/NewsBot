@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"log"
@@ -220,4 +221,37 @@ func miniEmoji(a news.Article) string {
 
 func tgEmoji(id, fallback string) string {
 	return `<tg-emoji emoji-id="` + id + `">` + fallback + `</tg-emoji>`
+}
+
+// manualSent — что уже присылали по кнопке «Одиночный пост», чтобы не повторять одно и то же.
+var manualSent = map[string]bool{}
+
+// RunMiniOne шлёт самую свежую по теме новость, которую ещё не присылали по кнопке.
+func RunMiniOne(cfg config.Config) error {
+	miniMu.Lock()
+	defer miniMu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	arts, err := news.FetchMini(ctx)
+	if err != nil {
+		return err
+	}
+	for _, a := range arts { // новые первыми
+		if manualSent[a.Link] || (a.Source == "Код Дурова" && !gemini.OnTopic(ctx, cfg, a.Title, a.Summary)) {
+			continue
+		}
+		photo := news.DownloadImage(ctx, news.ImageFor(ctx, a))
+		if err := telegram.SendMini(cfg, miniHTML(a), photo); err != nil {
+			return err
+		}
+		manualSent[a.Link] = true
+		// чтобы фоновая лента не прислала ту же новость второй раз
+		path := miniSeenPath()
+		if seen, ok := readSeen(path); ok {
+			_ = writeSeen(path, append(seen, a.Link))
+		}
+		log.Printf("мини-пост по кнопке: %s", a.Title)
+		return nil
+	}
+	return errors.New("новее подходящих новостей нет")
 }

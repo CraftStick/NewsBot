@@ -53,6 +53,7 @@ func main() {
 		cfg.Timezone, cfg.GeminiModel, cfg.CronSchedule)
 
 	regenerate := func() error { return app.RunDigest(cfg) }
+	telegram.PostOne = func() error { return app.RunMiniOne(cfg) }
 
 	switch {
 	case *once:

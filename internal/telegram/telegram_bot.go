@@ -20,6 +20,29 @@ import (
 
 const cbRegenerateDigest = "regenerate_digest"
 
+const cbPostOne = "post_one"
+
+// PostOne — отправка одиночного мини-поста; задаётся из main (пакет app сам импортирует telegram).
+var PostOne func() error
+
+func (tc *telegramController) postOne(q *tgbotapi.CallbackQuery) {
+	if PostOne == nil {
+		return
+	}
+	text := ""
+	if err := PostOne(); err != nil {
+		text = "❌ " + err.Error()
+		log.Printf("одиночный пост: %v", err)
+	}
+	if q != nil {
+		cb := tgbotapi.NewCallback(q.ID, text)
+		cb.ShowAlert = text != ""
+		_, _ = tc.bot.Request(cb)
+	} else if text != "" {
+		_, _ = tc.bot.Send(tgbotapi.NewMessage(tc.chatID, text))
+	}
+}
+
 type telegramController struct {
 	cfg        config.Config
 	bot        *tgbotapi.BotAPI
@@ -48,6 +71,9 @@ func regenerateKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔄 Другой дайджест", cbRegenerateDigest),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📰 Одиночный пост", cbPostOne),
 		),
 	)
 }
@@ -219,6 +245,10 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 			go tc.handlePublish(q) // публикация до минуты — не держим опрос
 			return
 		}
+		if q.Data == cbPostOne && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
+			go tc.postOne(q) // сеть и Gemini — не держим опрос
+			return
+		}
 		if strings.HasPrefix(q.Data, cbSkip) && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
 			skipPending(strings.TrimPrefix(q.Data, cbSkip))
 			log.Print("мини-пост пропущен кнопкой")
@@ -245,8 +275,11 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 	case "/start", "/help":
 		const welcome = "Привет! Я собираю пятничный дайджест.\n\n" +
 			"<b>/digest</b> — собрать новый дайджест\n" +
+			"<b>/post</b> — прислать одиночный пост\n" +
 			"Или нажмите кнопку ниже"
 		_ = tc.sendHTML(chatID, welcome, true)
+	case "/post", "/пост":
+		go tc.postOne(nil)
 	case "/digest", "/new", "/новости", "/дайджест":
 		tc.startRegenerate(chatID, 0)
 	}
