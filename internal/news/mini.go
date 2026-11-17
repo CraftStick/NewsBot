@@ -74,8 +74,22 @@ func cleanMiniText(title, sum string) (string, string) {
 		}))
 	}
 	title, sum = lead(strings.TrimSpace(title)), lead(sum)
-	if strings.HasPrefix(sum, title) || strings.HasPrefix(title, sum) {
+	ft, fs := fold(title), fold(sum)
+	switch {
+	case strings.HasPrefix(fs, ft) && !strings.HasSuffix(title, "…") || strings.HasPrefix(ft, fs):
 		sum = ""
+	case strings.HasSuffix(title, "…") && strings.HasPrefix(fs, ft):
+		title, sum = sum, "" // заголовок у Gram News — обрезанный текст поста; берём текст целиком
 	}
 	return title, sum
+}
+
+// fold оставляет только буквы и цифры: «…» и «*» не мешают сравнить заголовок с текстом.
+func fold(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return r
+		}
+		return -1
+	}, strings.ToLower(s))
 }

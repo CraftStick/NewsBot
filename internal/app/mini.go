@@ -102,6 +102,9 @@ func miniHTML(a news.Article) string {
 	sum := []rune(a.Summary)
 	for {
 		s := fmt.Sprintf(`%s  <b>%s</b>`, miniEmoji(a), html.EscapeString(a.Title))
+		if len([]rune(a.Title)) > 200 { // длинный текст поста целиком жирным нечитаем
+			s = fmt.Sprintf("%s  %s", miniEmoji(a), html.EscapeString(a.Title))
+		}
 		if len(sum) > 0 {
 			s += "\n\n" + html.EscapeString(string(sum))
 		}
