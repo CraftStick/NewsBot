@@ -170,6 +170,9 @@ func RunMini(cfg config.Config) (err error) {
 		if a.Source == "Код Дурова" && !gemini.OnTopic(ctx, cfg, a.Title, a.Summary) {
 			seen = append(seen, a.Link)
 			log.Printf("мини-пост: не по теме (Gemini): %s", a.Title)
+			if err := writeSeen(path, seen); err != nil { // иначе проверка темы (и квота Gemini) повторяется каждый тик
+				return err
+			}
 			continue
 		}
 		photo := news.DownloadImage(ctx, news.ImageFor(ctx, a)) // nil — уйдёт текстом
