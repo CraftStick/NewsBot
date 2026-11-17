@@ -188,15 +188,28 @@ func isKod(a news.Article) bool { return strings.Contains(a.Link, "kod.ru") }
 
 func isMain(a news.Article) bool { return isKod(a) || strings.Contains(a.Link, "rozetked.me") }
 
-// digestPhoto — обложка дайджеста: картинка первой статьи kod.ru из дайджеста;
-// nil — тогда стандартная (чужие источники не берём). Порядок пунктов = важность.
+// digestPhoto — обложка дайджеста: картинка статьи kod.ru. Сначала те, что попали в
+// дайджест (порядок пунктов = важность), затем остальные kod.ru недели; nil — тогда
+// стандартная (чужие источники не берём).
 func digestPhoto(ctx context.Context, html string, articles []news.Article) []byte {
-	for _, a := range articles {
-		if isKod(a) && strings.Contains(html, a.Link) {
-			if b := news.DownloadImage(ctx, news.ImageFor(ctx, a)); b != nil {
-				return b
-			}
+	for _, a := range kodCandidates(html, articles) {
+		if b := news.DownloadImage(ctx, news.ImageFor(ctx, a)); b != nil {
+			return b
 		}
 	}
 	return nil
+}
+
+func kodCandidates(html string, articles []news.Article) []news.Article {
+	var in, rest []news.Article
+	for _, a := range articles {
+		switch {
+		case !isKod(a):
+		case strings.Contains(html, strings.TrimSuffix(a.Link, "/")):
+			in = append(in, a)
+		default:
+			rest = append(rest, a)
+		}
+	}
+	return append(in, rest...)
 }
