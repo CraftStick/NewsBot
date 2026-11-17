@@ -47,11 +47,13 @@ func (tc *telegramController) setPublishButton(html string, photo []byte) {
 		log.Printf("кнопка публикации не создана: %v", err)
 		return
 	}
-	row := tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("📣 Опубликовать", cbPublish+key),
-		tgbotapi.NewInlineKeyboardButtonData("⏰ Позже", cbLater+key),
-		tgbotapi.NewInlineKeyboardButtonData("🗑 Пропустить", cbSkip+key))
-	tc.publishKB = &row
+	tc.publishKB = [][]tgbotapi.InlineKeyboardButton{
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📣 Опубликовать", cbPublish+key),
+			tgbotapi.NewInlineKeyboardButtonData("🗑 Пропустить", cbSkip+key)),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("⏰ Отложить", cbLater+key)),
+	}
 }
 
 const (

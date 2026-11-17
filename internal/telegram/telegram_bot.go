@@ -48,8 +48,8 @@ type telegramController struct {
 	bot        *tgbotapi.BotAPI
 	chatID     int64
 	mu         sync.Mutex
-	regenerate func() error                     // пересборка дайджеста по кнопке и /digest
-	publishKB  *[]tgbotapi.InlineKeyboardButton // кнопка «Опубликовать» для превью
+	regenerate func() error                      // пересборка дайджеста по кнопке и /digest
+	publishKB  [][]tgbotapi.InlineKeyboardButton // кнопка «Опубликовать» для превью
 }
 
 func newTelegramController(cfg config.Config) (*telegramController, error) {
@@ -82,7 +82,7 @@ func regenerateKeyboard() tgbotapi.InlineKeyboardMarkup {
 func (tc *telegramController) previewKeyboard() tgbotapi.InlineKeyboardMarkup {
 	kb := regenerateKeyboard()
 	if tc.publishKB != nil {
-		kb.InlineKeyboard = append([][]tgbotapi.InlineKeyboardButton{*tc.publishKB}, kb.InlineKeyboard...)
+		kb.InlineKeyboard = append(append([][]tgbotapi.InlineKeyboardButton{}, tc.publishKB...), kb.InlineKeyboard...)
 	}
 	return kb
 }

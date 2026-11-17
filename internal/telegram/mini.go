@@ -16,7 +16,7 @@ func SendMini(cfg config.Config, html string, photo []byte) error {
 	tc.setPublishButton(html, photo)
 	var kb *tgbotapi.InlineKeyboardMarkup
 	if tc.publishKB != nil {
-		k := tgbotapi.NewInlineKeyboardMarkup(*tc.publishKB)
+		k := tgbotapi.NewInlineKeyboardMarkup(tc.publishKB...)
 		kb = &k
 	}
 	if len(photo) > 0 {

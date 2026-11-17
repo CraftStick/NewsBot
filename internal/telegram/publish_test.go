@@ -64,7 +64,7 @@ func TestSetPublishButtonDigest(t *testing.T) {
 	if tc.publishKB == nil {
 		t.Fatal("кнопки нет")
 	}
-	key := strings.TrimPrefix(*(*tc.publishKB)[0].CallbackData, cbPublish)
+	key := strings.TrimPrefix(*tc.publishKB[0][0].CallbackData, cbPublish)
 	if err := publishPending(tc.cfg, key); err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestPreviewKeyboard(t *testing.T) {
 	}
 	t.Chdir(t.TempDir())
 	tc.setPublishButton("<b>d</b>", nil)
-	if n := len(tc.previewKeyboard().InlineKeyboard); n != 3 {
-		t.Fatalf("ожидалось 3 ряда, а %d", n)
+	if n := len(tc.previewKeyboard().InlineKeyboard); n != 4 {
+		t.Fatalf("ожидалось 4 ряда, а %d", n)
 	}
 }
