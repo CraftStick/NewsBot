@@ -237,3 +237,8 @@ func ValidateNewsLinks(body string) error {
 	}
 	return nil
 }
+
+// SimilarTitles: заголовки об одном событии (общие корни слов или вложение).
+func SimilarTitles(a, b string) bool {
+	return titleMatchScore(normalizeTitle(a), normalizeTitle(b)) >= 36
+}

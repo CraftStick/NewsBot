@@ -511,3 +511,25 @@ func callGemini(
 	}
 	return "", "", lastErr
 }
+
+// OnTopic спрашивает модель, по теме ли новость (блокировки, VPN, приватность,
+// инфобезопасность, регулирование интернета). Любая ошибка — true: фильтр не должен глушить посты.
+func OnTopic(ctx context.Context, cfg config.Config, title, summary string) bool {
+	if cfg.GeminiAPIKey == "" {
+		return true
+	}
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: cfg.GeminiAPIKey, Backend: genai.BackendGeminiAPI})
+	if err != nil {
+		return true
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	out, _, err := callGemini(ctx, client, cfg,
+		"Ты фильтр новостей канала про блокировки, VPN, Роскомнадзор, приватность, утечки данных, кибербезопасность и регулирование интернета в России. Ответь одним словом: ДА, если новость строго по этим темам, иначе НЕТ. Мошенничество с билетами, гаджеты, игры и общие технологии — НЕТ.",
+		title+"\n"+summary, 1, 20, &requestBudget{left: 1})
+	if err != nil {
+		log.Printf("мини-посты: проверка темы: %v", err)
+		return true
+	}
+	return !strings.HasPrefix(strings.ToUpper(strings.TrimSpace(out)), "НЕТ")
+}

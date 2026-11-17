@@ -48,7 +48,8 @@ func (tc *telegramController) setPublishButton(html string, photo []byte) {
 		return
 	}
 	row := tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("📣 Опубликовать в канал", cbPublish+key))
+		tgbotapi.NewInlineKeyboardButtonData("📣 Опубликовать в канал", cbPublish+key),
+		tgbotapi.NewInlineKeyboardButtonData("🗑 Пропустить", cbSkip+key))
 	tc.publishKB = &row
 }
 
@@ -87,6 +88,17 @@ func sweepPending() {
 }
 
 var publishMu sync.Mutex
+
+const cbSkip = "skip:"
+
+// skipPending удаляет заготовку и её фото; key — только hex, чтобы не выйти из pendingDir.
+func skipPending(key string) {
+	if _, err := hex.DecodeString(key); err != nil || key == "" {
+		return
+	}
+	_ = os.Remove(filepath.Join(pendingDir, key+".json"))
+	_ = os.Remove(filepath.Join(pendingDir, key+".jpg"))
+}
 
 // publishPending отдаёт сохранённый пост юзерботу. Файл удаляется только после успеха:
 // повторное нажатие после публикации ничего не отправит.

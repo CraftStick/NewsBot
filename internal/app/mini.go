@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"treesheild-newsbot/internal/config"
+	"treesheild-newsbot/internal/digest"
+	"treesheild-newsbot/internal/gemini"
 	"treesheild-newsbot/internal/news"
 	"treesheild-newsbot/internal/telegram"
 )
@@ -25,6 +27,34 @@ const (
 )
 
 var miniMu sync.Mutex
+
+// miniRecent — заголовки отправленных в этом запуске: убирает дубли kod.ru и Gram News.
+var miniRecent []string
+
+func recentDup(title string, recent []string) bool {
+	for _, t := range recent {
+		if digest.SimilarTitles(title, t) {
+			return true
+		}
+	}
+	return false
+}
+
+// miniSince — нижняя граница свежести. С 00 до 08 мини-посты копятся, утром (08–11)
+// уходит всё накопленное за ночь.
+func miniSince(now time.Time) time.Time {
+	if os.Getenv("MINI_MAX_AGE") != "" {
+		return now.Add(-maxAge())
+	}
+	if h := now.Hour(); h >= 8 && h < 11 {
+		return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	}
+	return now.Add(-maxAge())
+}
+
+func quietHours(now time.Time) bool {
+	return os.Getenv("MINI_MAX_AGE") == "" && now.Hour() < 8
+}
 
 func miniSeenPath() string {
 	if p := os.Getenv("MINI_SEEN_FILE"); p != "" {
@@ -127,12 +157,28 @@ func RunMini(cfg config.Config) (err error) {
 		log.Printf("мини-посты: первый запуск, запомнил %d записей", len(seen))
 		return writeSeen(path, seen)
 	}
-	for _, a := range newMini(arts, seen, miniMaxPerTick, time.Now().Add(-maxAge())) {
+	if quietHours(time.Now()) {
+		return nil
+	}
+	for _, a := range newMini(arts, seen, miniMaxPerTick, miniSince(time.Now())) {
+		if recentDup(a.Title, miniRecent) {
+			seen = append(seen, a.Link) // тот же сюжет уже присылали из другого источника
+			log.Printf("мини-пост: дубль, пропущен: %s", a.Title)
+			continue
+		}
+		if a.Source == "Код Дурова" && !gemini.OnTopic(ctx, cfg, a.Title, a.Summary) {
+			seen = append(seen, a.Link)
+			log.Printf("мини-пост: не по теме (Gemini): %s", a.Title)
+			continue
+		}
 		photo := news.DownloadImage(ctx, news.ImageFor(ctx, a)) // nil — уйдёт текстом
 		if err := telegram.SendMini(cfg, miniHTML(a), photo); err != nil {
 			return err // не отмечена — уйдёт на следующем проходе
 		}
 		seen = append(seen, a.Link)
+		if miniRecent = append(miniRecent, a.Title); len(miniRecent) > 50 {
+			miniRecent = miniRecent[1:]
+		}
 		if err := writeSeen(path, seen); err != nil {
 			return err
 		}

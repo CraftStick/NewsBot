@@ -219,6 +219,13 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 			go tc.handlePublish(q) // публикация до минуты — не держим опрос
 			return
 		}
+		if strings.HasPrefix(q.Data, cbSkip) && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
+			skipPending(strings.TrimPrefix(q.Data, cbSkip))
+			log.Print("мини-пост пропущен кнопкой")
+			_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, "Пропущено"))
+			_, _ = tc.bot.Request(tgbotapi.NewDeleteMessage(q.Message.Chat.ID, q.Message.MessageID))
+			return
+		}
 		if q.Data == cbRegenerateDigest && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
 			_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, "Запускаю новый дайджест…"))
 			tc.startRegenerate(q.Message.Chat.ID, q.Message.MessageID)

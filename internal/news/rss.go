@@ -486,7 +486,9 @@ func ImageFor(ctx context.Context, a Article) string {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.Link, nil)
+	// у t.me/s/<канал>/<n> нет og:image, у t.me/<канал>/<n> есть
+	link := strings.Replace(a.Link, "t.me/s/", "t.me/", 1)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
 	if err != nil {
 		return ""
 	}
