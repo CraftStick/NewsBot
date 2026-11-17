@@ -54,6 +54,7 @@ func main() {
 
 	regenerate := func() error { return app.RunDigest(cfg) }
 	telegram.PostOne = func() error { return app.RunMiniOne(cfg) }
+	telegram.ClearDB = app.ClearMini
 
 	switch {
 	case *once:

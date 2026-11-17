@@ -75,6 +75,9 @@ func regenerateKeyboard() tgbotapi.InlineKeyboardMarkup {
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("📰 Одиночный пост", cbPostOne),
 		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🧹 Очистить БД", cbClearAsk),
+		),
 	)
 }
 
@@ -247,6 +250,10 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 		}
 		if q.Data == cbPostOne && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
 			go tc.postOne(q) // сеть и Gemini — не держим опрос
+			return
+		}
+		if (q.Data == cbClearAsk || q.Data == cbClearYes || q.Data == cbClearNo) && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
+			tc.handleClear(q)
 			return
 		}
 		if q.Data == "noop" {

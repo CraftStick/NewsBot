@@ -255,3 +255,15 @@ func RunMiniOne(cfg config.Config) error {
 	}
 	return errors.New("новее подходящих новостей нет")
 }
+
+// ClearMini забывает просмотренные ссылки; следующий опрос заново снимет «базу» без отправки.
+func ClearMini() error {
+	miniMu.Lock()
+	defer miniMu.Unlock()
+	if err := os.Remove(miniSeenPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	miniRecent = nil
+	manualSent = map[string]bool{}
+	return nil
+}

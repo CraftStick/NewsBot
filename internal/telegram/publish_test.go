@@ -96,12 +96,12 @@ func TestSweepPending(t *testing.T) {
 
 func TestPreviewKeyboard(t *testing.T) {
 	tc := &telegramController{cfg: config.Config{PublishCmd: "cat"}}
-	if n := len(tc.previewKeyboard().InlineKeyboard); n != 2 {
-		t.Fatalf("без публикации два ряда, а %d", n)
+	if n := len(tc.previewKeyboard().InlineKeyboard); n != 3 {
+		t.Fatalf("без публикации три ряда, а %d", n)
 	}
 	t.Chdir(t.TempDir())
 	tc.setPublishButton("<b>d</b>", nil)
-	if n := len(tc.previewKeyboard().InlineKeyboard); n != 4 {
-		t.Fatalf("ожидалось 4 ряда, а %d", n)
+	if n := len(tc.previewKeyboard().InlineKeyboard); n != 5 {
+		t.Fatalf("ожидалось 5 ряда, а %d", n)
 	}
 }
