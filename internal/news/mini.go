@@ -49,7 +49,20 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 				Summary: sum, PublishedAt: *it.PublishedParsed, Relevance: rel})
 		}
 	}
-	if len(errs) == len(miniFeeds) {
+	for _, ch := range miniChannels {
+		arts, err := fetchChannel(ctx, ch.Name, ch.Handle)
+		if err != nil {
+			log.Printf("мини-посты: %s: %v", ch.Handle, err)
+			errs = append(errs, err)
+			continue
+		}
+		for _, a := range arts {
+			if a.Relevance = articleRelevance(a.Title, a.Summary); a.Relevance >= relevanceTopic {
+				out = append(out, a)
+			}
+		}
+	}
+	if len(errs) == len(miniFeeds)+len(miniChannels) {
 		return nil, errors.Join(errs...)
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].PublishedAt.After(out[j].PublishedAt) })
