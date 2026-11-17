@@ -65,7 +65,7 @@ func StartScheduler(cfg config.Config) (gocron.Scheduler, error) {
 
 	if os.Getenv("MINI_POSTS") != "off" {
 		_, err = scheduler.NewJob(
-			gocron.DurationJob(5*time.Minute),
+			gocron.DurationJob(time.Minute),
 			gocron.NewTask(func() {
 				if err := RunMini(cfg); err != nil {
 					log.Printf("мини-посты: %v", err)
