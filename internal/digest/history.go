@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -98,8 +99,20 @@ func extractPublishedItems(newsHTML string, now time.Time) []publishedItem {
 		}
 		out = append(out, publishedItem{Title: title, Link: link, SentAt: now})
 	}
+	if len(out) == 0 { // одиночный мини-пост: без нумерации, заголовок — первый <b>
+		link := extractNewsURL(newsHTML)
+		title := ""
+		if m := boldRE.FindStringSubmatch(newsHTML); m != nil {
+			title = strings.TrimSpace(news.StripHTML(m[1]))
+		}
+		if title != "" || link != "" {
+			out = append(out, publishedItem{Title: title, Link: link, SentAt: now})
+		}
+	}
 	return out
 }
+
+var boldRE = regexp.MustCompile(`(?is)<b>(.*?)</b>`)
 
 // DropPublished убирает из ленты статьи, которые уже уходили в дайджест. Ссылка
 // совпадает точно; заголовок сравниваем нормализованным — на случай, если та же

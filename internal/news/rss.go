@@ -476,6 +476,8 @@ func isSVG(u string) bool {
 
 var ogImageRE = regexp.MustCompile(`(?i)<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']|<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']`)
 
+var tgPhotoRE = regexp.MustCompile(`tgme_widget_message_photo_wrap[^>]*background-image:url\('([^']+)'\)`)
+
 // ImageFor возвращает картинку статьи: из RSS, иначе og:image страницы. Пусто при любой ошибке.
 func ImageFor(ctx context.Context, a Article) string {
 	if a.Image != "" {
@@ -486,8 +488,12 @@ func ImageFor(ctx context.Context, a Article) string {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	// у t.me/s/<канал>/<n> нет og:image, у t.me/<канал>/<n> есть
+	// у t.me-поста без фото og:image — аватар канала; фото есть только в блоке photo_wrap embed-версии
 	link := strings.Replace(a.Link, "t.me/s/", "t.me/", 1)
+	isTG := strings.Contains(link, "://t.me/")
+	if isTG {
+		link += "?embed=1"
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
 	if err != nil {
 		return ""
@@ -499,11 +505,20 @@ func ImageFor(ctx context.Context, a Article) string {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	b, _ := io.ReadAll(io.LimitReader(resp.Body, 512<<10))
-	m := ogImageRE.FindSubmatch(b)
-	if m == nil {
-		return ""
+	var u string
+	if isTG {
+		m := tgPhotoRE.FindSubmatch(b)
+		if m == nil {
+			return ""
+		}
+		u = html.UnescapeString(string(m[1]))
+	} else {
+		m := ogImageRE.FindSubmatch(b)
+		if m == nil {
+			return ""
+		}
+		u = html.UnescapeString(string(m[1]) + string(m[2]))
 	}
-	u := html.UnescapeString(string(m[1]) + string(m[2]))
 	if !strings.HasPrefix(u, "http") || isSVG(u) {
 		return ""
 	}

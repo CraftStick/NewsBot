@@ -249,6 +249,18 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 			go tc.postOne(q) // сеть и Gemini — не держим опрос
 			return
 		}
+		if q.Data == "noop" {
+			_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, ""))
+			return
+		}
+		if strings.HasPrefix(q.Data, cbLater) && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
+			tc.handleLater(q)
+			return
+		}
+		if strings.HasPrefix(q.Data, cbAt) && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
+			tc.handleAt(q)
+			return
+		}
 		if strings.HasPrefix(q.Data, cbSkip) && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
 			skipPending(strings.TrimPrefix(q.Data, cbSkip))
 			log.Print("мини-пост пропущен кнопкой")
@@ -314,6 +326,9 @@ func Run(ctx context.Context, cfg config.Config, regenerate func() error) error 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 	updates := tc.bot.GetUpdatesChan(u)
+	stop := make(chan struct{})
+	defer close(stop)
+	go tc.runScheduler(cfg, stop)
 
 	for {
 		select {
