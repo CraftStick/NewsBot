@@ -151,7 +151,7 @@ func maxAge() time.Duration {
 
 // miniEmoji — значок по теме новости; первое совпавшее правило, иначе 📰.
 func miniEmoji(a news.Article) string {
-	t := strings.ToLower(a.Title + " " + a.Summary)
+	t := " " + strings.ToLower(a.Title+" "+a.Summary)
 	rules := []struct {
 		id, fallback string
 		words        []string
@@ -160,7 +160,7 @@ func miniEmoji(a news.Article) string {
 		{"5348230282140993341", "🛡️", []string{"утечк", "взлом", "хакер", "уязвим", "кибер", "вирус", "шифр", "приватн", "персональн", "мошенн", "фишинг"}},
 		{"5348414471813483004", "☕️", []string{"закон", "суд", "штраф", "госдум", "регулир"}},
 		{"5348482508390419372", "📱", []string{"telegram", "телеграм", "whatsapp", "мессенджер"}},
-		{"5348302871383263062", "🧠", []string{"нейросет", "искусственн", "openai", "chatgpt"}},
+		{"5348302871383263062", "🧠", []string{" ии ", " ии-", " ии,", "нейросет", "искусственн", "openai", "chatgpt"}},
 	}
 	for _, r := range rules {
 		for _, w := range r.words {
