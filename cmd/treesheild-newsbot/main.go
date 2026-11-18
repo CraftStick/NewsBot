@@ -20,7 +20,6 @@ import (
 	"treesheild-newsbot/internal/news"
 	"treesheild-newsbot/internal/settings"
 	"treesheild-newsbot/internal/telegram"
-	"treesheild-newsbot/internal/web"
 )
 
 func main() {
@@ -90,17 +89,8 @@ func main() {
 	// Досылаем пятничный дайджест, если его слот пришёлся на простой (ребут).
 	go app.RunCatchUpIfMissed(cfg)
 
-	// Мини-апка: сервер за HTTPS-прокси + кнопка меню бота.
 	if p := os.Getenv("SETTINGS_FILE"); p != "" {
 		settings.SetPath(p)
-	}
-	if id, err := config.ParsePreviewChatID(cfg.TelegramPreviewChatID); err == nil {
-		go web.Run(cfg, id)
-	}
-	if cfg.WebAddr != "" && cfg.WebURL != "" {
-		if err := telegram.SetMenuApp(cfg, cfg.WebURL); err != nil {
-			log.Printf("кнопка мини-апки: %v", err)
-		}
 	}
 
 	sig := make(chan os.Signal, 1)
