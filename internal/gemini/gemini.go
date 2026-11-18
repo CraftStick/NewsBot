@@ -518,6 +518,9 @@ func OnTopic(ctx context.Context, cfg config.Config, title, summary string) bool
 	if cfg.GeminiAPIKey == "" {
 		return true
 	}
+	if cfg.GeminiFallbackModel != "" { // лёгкая модель: у неё своя дневная квота, дайджест её не делит
+		cfg.GeminiModel = cfg.GeminiFallbackModel
+	}
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: cfg.GeminiAPIKey, Backend: genai.BackendGeminiAPI})
 	if err != nil {
 		return true

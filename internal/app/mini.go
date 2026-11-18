@@ -27,6 +27,12 @@ const (
 	miniMaxAge = 3 * time.Hour
 )
 
+// Больше miniBatchMin новых за проход (обычно утро после тихих часов) — одно сообщение-подборка.
+const (
+	miniBatchMin = 3
+	miniBatchCap = 15
+)
+
 var miniMu sync.Mutex
 
 // miniRecent — заголовки отправленных в этом запуске: убирает дубли kod.ru и Gram News.
@@ -164,6 +170,9 @@ func RunMini(cfg config.Config) (err error) {
 	if quietHours(time.Now()) {
 		return nil
 	}
+	if all := newMini(arts, seen, miniBatchCap, miniSince(time.Now())); len(all) > miniBatchMin {
+		return sendBatch(ctx, cfg, all, seen, path)
+	}
 	for _, a := range newMini(arts, seen, miniMaxPerTick, miniSince(time.Now())) {
 		if recentDup(a.Title, miniRecent) {
 			seen = append(seen, a.Link) // тот же сюжет уже присылали из другого источника
@@ -275,4 +284,49 @@ func ClearMini() error {
 	miniRecent = nil
 	manualSent = map[string]bool{}
 	return nil
+}
+
+// batchHTML — подборка списком: заголовок со ссылкой на пост/статью; влезает в одно сообщение.
+func batchHTML(arts []news.Article) string {
+	s := fmt.Sprintf("🌅 <b>Накопилось новостей: %d</b>\n", len(arts))
+	for _, a := range arts {
+		t := []rune(a.Title)
+		if len(t) > 120 {
+			t = append(t[:119], '…')
+		}
+		line := fmt.Sprintf("\n• <a href=\"%s\">%s</a>", html.EscapeString(a.Link), html.EscapeString(string(t)))
+		if len([]rune(s+line)) > 3900 {
+			break
+		}
+		s += line
+	}
+	return s
+}
+
+// sendBatch отправляет подборку вместо потока одиночных постов; в ней те же фильтры (дубли, тема).
+func sendBatch(ctx context.Context, cfg config.Config, all []news.Article, seen []string, path string) error {
+	var keep []news.Article
+	var titles []string
+	for _, a := range all {
+		seen = append(seen, a.Link)
+		if recentDup(a.Title, miniRecent) || recentDup(a.Title, titles) {
+			continue
+		}
+		if a.Source == "Код Дурова" && !gemini.OnTopic(ctx, cfg, a.Title, a.Summary) {
+			continue
+		}
+		keep = append(keep, a)
+		titles = append(titles, a.Title)
+	}
+	if len(keep) > 0 {
+		if err := telegram.SendText(cfg, batchHTML(keep)); err != nil {
+			return err // не отмечены — уйдут на следующем проходе
+		}
+		miniRecent = append(miniRecent, titles...)
+		if len(miniRecent) > 50 {
+			miniRecent = miniRecent[len(miniRecent)-50:]
+		}
+	}
+	log.Printf("мини-посты: подборка, в ней %d из %d", len(keep), len(all))
+	return writeSeen(path, seen)
 }

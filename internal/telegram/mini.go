@@ -37,3 +37,16 @@ func SendMini(cfg config.Config, html string, photo []byte) error {
 	_, err = tc.bot.Send(msg)
 	return err
 }
+
+// SendText шлёт HTML-сообщение в личку без кнопок и предпросмотра ссылок.
+func SendText(cfg config.Config, html string) error {
+	tc, err := newTelegramController(cfg)
+	if err != nil {
+		return err
+	}
+	msg := tgbotapi.NewMessage(tc.chatID, html)
+	msg.ParseMode = tgbotapi.ModeHTML
+	msg.DisableWebPagePreview = true
+	_, err = tc.bot.Send(msg)
+	return err
+}

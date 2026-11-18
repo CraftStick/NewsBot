@@ -61,6 +61,7 @@ type Article struct {
 	Image       string
 	EmojiID     string // свой анимированный эмодзи поста канала
 	EmojiChar   string
+	Ref         string // статья, на которую ссылается пост канала
 }
 
 // topicKeywords — однозначная суть дайджеста: доступ, приватность,

@@ -20,6 +20,7 @@ var (
 	reChanText  = regexp.MustCompile(`(?s)^([^"]+)".*?<div class="tgme_widget_message_text js-message_text"[^>]*>(.*?)</div>.*?<time[^>]*datetime="([^"]+)"`)
 	reTag       = regexp.MustCompile(`<[^>]+>`)
 	reLeadEmoji = regexp.MustCompile(`^(?:<b>)?<tg-emoji emoji-id="(\d+)">.*?<b>([^<]+)</b>`)
+	reRefLink   = regexp.MustCompile(`href="(https?://kod\.ru/[^"]+)"`)
 	reBR        = regexp.MustCompile(`<br\s*/?>`)
 	reURLLine   = regexp.MustCompile(`^\S*\s*https?://\S+$`)
 )
@@ -58,6 +59,9 @@ func fetchChannel(ctx context.Context, name, handle string) ([]Article, error) {
 		if e := reLeadEmoji.FindStringSubmatch(strings.TrimSpace(m[2])); e != nil { // свой анимированный эмодзи поста
 			a.EmojiID, a.EmojiChar = e[1], e[2]
 		}
+		if r := reRefLink.FindStringSubmatch(m[2]); r != nil {
+			a.Ref = refKey(r[1])
+		}
 		out = append(out, a)
 	}
 	return out, nil
@@ -85,4 +89,27 @@ func tidyPost(h string) string {
 		paras = paras[:len(paras)-1]
 	}
 	return strings.Join(paras, "\n\n")
+}
+
+func refKey(u string) string { return strings.TrimRight(strings.SplitN(u, "?", 2)[0], "/") }
+
+// dropRefDupes убирает RSS-статьи, на которые уже ссылается пост канала: приходит пост (со своим эмодзи и фото).
+func dropRefDupes(in []Article) []Article {
+	refs := map[string]bool{}
+	for _, a := range in {
+		if a.Ref != "" {
+			refs[a.Ref] = true
+		}
+	}
+	if len(refs) == 0 {
+		return in
+	}
+	out := in[:0]
+	for _, a := range in {
+		if a.Ref == "" && refs[refKey(a.Link)] {
+			continue
+		}
+		out = append(out, a)
+	}
+	return out
 }

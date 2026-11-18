@@ -6,6 +6,7 @@ import (
 	"log"
 	"sort"
 	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/mmcdole/gofeed"
@@ -19,6 +20,32 @@ var miniFeeds = []struct {
 	{"Код Дурова", "https://kod.ru/rss", false},
 }
 
+// OnSourceDown вызывается, когда источник не отвечает miniDownAfter проходов подряд.
+var OnSourceDown func(name string)
+
+const miniDownAfter = 15
+
+var (
+	miniFailsMu sync.Mutex
+	miniFails   = map[string]int{}
+)
+
+// noteSource считает неудачи подряд; сообщение — один раз на сбой.
+func noteSource(name string, err error) {
+	miniFailsMu.Lock()
+	if err == nil {
+		miniFails[name] = 0
+		miniFailsMu.Unlock()
+		return
+	}
+	miniFails[name]++
+	down := miniFails[name] == miniDownAfter
+	miniFailsMu.Unlock()
+	if down && OnSourceDown != nil {
+		OnSourceDown(name)
+	}
+}
+
 // FetchMini — свежие записи источников мини-постов, новые первыми.
 // Упавшая лента не мешает остальным; ошибка — только если не ответили все.
 func FetchMini(ctx context.Context) ([]Article, error) {
@@ -29,6 +56,7 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 	var errs []error
 	for _, src := range miniFeeds {
 		feed, err := fetchFeedWithRetry(ctx, parser, src.URL)
+		noteSource(src.Name, err)
 		if err != nil {
 			log.Printf("мини-посты: %s: %v", src.Name, err)
 			errs = append(errs, err)
@@ -50,6 +78,7 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 	}
 	for _, ch := range miniChannels {
 		arts, err := fetchChannel(ctx, ch.Name, ch.Handle)
+		noteSource(ch.Handle, err)
 		if err != nil {
 			log.Printf("мини-посты: %s: %v", ch.Handle, err)
 			errs = append(errs, err)
@@ -64,6 +93,7 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 	if len(errs) == len(miniFeeds)+len(miniChannels) {
 		return nil, errors.Join(errs...)
 	}
+	out = dropRefDupes(out)
 	sort.SliceStable(out, func(i, j int) bool { return out[i].PublishedAt.After(out[j].PublishedAt) })
 	return out, nil
 }

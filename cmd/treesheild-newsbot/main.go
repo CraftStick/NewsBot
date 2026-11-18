@@ -55,6 +55,9 @@ func main() {
 	regenerate := func() error { return app.RunDigest(cfg) }
 	telegram.PostOne = func() error { return app.RunMiniOne(cfg) }
 	telegram.ClearDB = app.ClearMini
+	news.OnSourceDown = func(name string) {
+		_ = telegram.SendText(cfg, "⚠️ Источник «"+name+"» не отвечает 15 минут подряд")
+	}
 
 	switch {
 	case *once:
