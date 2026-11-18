@@ -4,33 +4,32 @@
 <title>NewsBot</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-:root{--bg:#1aabff;--dk:#0b63b0;--sh:#1583d0;--ink:#0b3a66;--hint:#4a6f94;--r:22px 17px 24px 16px/17px 24px 16px 22px}
+:root{--bg:var(--tg-theme-bg-color,#fff);--sbg:var(--tg-theme-secondary-bg-color,#f1f3f5);--tx:var(--tg-theme-text-color,#000);--hint:var(--tg-theme-hint-color,#7d8590);--ac:var(--tg-theme-button-color,#2481cc);--act:var(--tg-theme-button-text-color,#fff);--ln:color-mix(in srgb,var(--hint) 25%,transparent)}
 *{box-sizing:border-box}
-body{margin:0;font:15px/1.45 -apple-system,system-ui,sans-serif;color:var(--ink);background:var(--bg)}
-header{text-align:center;padding:10px 12px 0}
-header svg{width:min(250px,72%);height:auto;display:block;margin:auto}
-header h1{margin:14px 0 10px;font-size:22px;color:#fff;letter-spacing:.3px;text-shadow:3px 3px 0 var(--sh)}
-nav{display:flex;gap:10px;position:sticky;top:0;z-index:2;padding:8px 14px 14px;background:var(--bg)}
-nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border:3px solid var(--dk);border-radius:var(--r);background:var(--sh);color:#fff;font:700 13px inherit;font-family:inherit;box-shadow:0 5px 0 var(--dk)}
-nav button[aria-selected=true]{background:#fff;color:var(--ink)}
-main{padding:6px 20px 36px 14px;max-width:640px;margin:auto}
-.card{background:#fff;border:3px solid var(--dk);border-radius:var(--r);padding:14px;margin-bottom:22px;overflow-wrap:anywhere;box-shadow:8px 10px 0 var(--sh)}
-.card img{width:100%;border-radius:12px 9px 13px 8px;margin-bottom:10px;display:block;border:3px solid var(--dk)}
-.card a{color:#0a7ad1;font-weight:600}
-.row{display:flex;gap:10px;margin-top:14px}
-.row button,.btn{flex:1;padding:10px 6px;border:3px solid var(--dk);border-radius:var(--r);font:800 14px inherit;font-family:inherit;background:var(--bg);color:#fff;box-shadow:0 5px 0 var(--dk);text-shadow:1px 1px 0 var(--dk)}
-.row button.sec{background:#e3effb;color:var(--ink);text-shadow:none}
-.btn{width:100%;font-size:17px;padding:13px}
-.row button:active,.btn:active,nav button:active{transform:translateY(4px);box-shadow:0 1px 0 var(--dk)}
-textarea{width:100%;min-height:150px;border-radius:14px 10px 15px 9px;border:3px solid var(--dk);background:#f4f9ff;color:var(--ink);font:14px ui-monospace,monospace;padding:10px}
+body{margin:0;font:15px/1.45 -apple-system,system-ui,sans-serif;color:var(--tx);background:var(--sbg)}
+header{text-align:center;padding:14px 12px 4px}
+header h1{margin:0;font-size:18px;font-weight:600}
+nav{display:flex;gap:4px;position:sticky;top:0;z-index:2;padding:8px 12px;background:var(--sbg)}
+nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 4px;border:0;border-radius:10px;background:none;color:var(--hint);font:500 12px inherit;font-family:inherit}
+nav button[aria-selected=true]{background:var(--bg);color:var(--ac)}
+main{padding:4px 12px 32px;max-width:640px;margin:auto}
+.card{background:var(--bg);border-radius:12px;padding:14px;margin-bottom:12px;overflow-wrap:anywhere}
+.card img{width:100%;border-radius:8px;margin-bottom:10px;display:block}
+.card a{color:var(--ac)}
+.row{display:flex;gap:8px;margin-top:12px}
+.row button,.btn{flex:1;padding:10px 6px;border:0;border-radius:10px;font:600 14px inherit;font-family:inherit;background:var(--ac);color:var(--act)}
+.row button.sec{background:var(--sbg);color:var(--tx)}
+.btn{width:100%;font-size:16px;padding:12px}
+.row button:active,.btn:active{opacity:.7}
+textarea{width:100%;min-height:150px;border-radius:10px;border:1px solid var(--ln);background:var(--sbg);color:var(--tx);font:14px ui-monospace,monospace;padding:10px}
 .hint{color:var(--hint);font-size:13px;margin-top:6px}
-p.hint{text-align:center;margin:30px 10px;color:#fff;font-size:15px}
-.ok{color:#0b8f7e;font-weight:800}.bad{color:#d63b3b;font-weight:800}
-label.sw{display:flex;justify-content:space-between;align-items:center;padding:10px 0;gap:10px;font-weight:600}
-label.sw input{appearance:none;flex:none;width:50px;height:30px;border-radius:16px;background:#cfe3f5;border:3px solid var(--dk);position:relative;margin:0;transition:.15s}
-label.sw input::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid var(--dk);box-sizing:content-box;margin:-3px 0 0 -3px;transition:.15s}
-label.sw input:checked{background:var(--bg)}
-label.sw input:checked::after{left:22px}
+p.hint{text-align:center;margin:30px 10px;font-size:15px}
+.ok{color:#2e9e5b;font-weight:600}.bad{color:#d63b3b;font-weight:600}
+label.sw{display:flex;justify-content:space-between;align-items:center;padding:10px 0;gap:10px}
+label.sw input{appearance:none;flex:none;width:46px;height:28px;border-radius:14px;background:var(--ln);position:relative;margin:0;transition:.15s}
+label.sw input::after{content:"";position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.15s}
+label.sw input:checked{background:var(--ac)}
+label.sw input:checked::after{left:20px}
 </style></head><body>
 <header><h1>Tree Shield News</h1></header>
 <nav role="tablist"><button role="tab" data-t="feed"><svg viewBox="0 0 22 22" width="20" height="20" aria-hidden="true"><path d="M2 11L20 3 12 19 10 13z" fill="currentColor"/></svg>Лента</button><button role="tab" data-t="status"><svg viewBox="0 0 22 22" width="20" height="20" aria-hidden="true"><path d="M3 18V11h4v7zM9 18V4h4v14zM15 18V8h4v10z" fill="currentColor"/></svg>Статус</button><button role="tab" data-t="set"><svg viewBox="0 0 22 22" width="20" height="20" aria-hidden="true"><circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" stroke-width="3.5"/><g stroke="currentColor" stroke-width="4.5" fill="none"><path d="M11 1.5V5" transform="rotate(0 11 11)"/><path d="M11 1.5V5" transform="rotate(45 11 11)"/><path d="M11 1.5V5" transform="rotate(90 11 11)"/><path d="M11 1.5V5" transform="rotate(135 11 11)"/><path d="M11 1.5V5" transform="rotate(180 11 11)"/><path d="M11 1.5V5" transform="rotate(225 11 11)"/><path d="M11 1.5V5" transform="rotate(270 11 11)"/><path d="M11 1.5V5" transform="rotate(315 11 11)"/></g></svg>Настройки</button></nav>
