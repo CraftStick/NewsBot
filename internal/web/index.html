@@ -37,6 +37,7 @@ label.sw input:checked::after{left:22px}
 <main id="m"></main>
 <script>
 const tg=Telegram.WebApp;tg.ready();tg.expand();
+if(!tg.initData){document.body.innerHTML='<p class="hint">Закрытое приложение.</p>';throw 0}
 const H={'X-Init-Data':tg.initData,'Content-Type':'application/json'};
 const api=async(p,b)=>{const r=await fetch('/api/'+p,{method:b?'POST':'GET',headers:H,body:b?JSON.stringify(b):undefined});
  const j=await r.json().catch(()=>({error:'ошибка '+r.status}));if(!r.ok)throw new Error(j.error||r.status);return j};
