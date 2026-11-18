@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"treesheild-newsbot/internal/settings"
 
 	"treesheild-newsbot/internal/config"
 	"treesheild-newsbot/internal/digest"
@@ -53,14 +54,14 @@ func miniSince(now time.Time) time.Time {
 	if os.Getenv("MINI_MAX_AGE") != "" {
 		return now.Add(-maxAge())
 	}
-	if h := now.Hour(); h >= 8 && h < 11 {
+	if h := now.Hour(); h >= 8 && h < 11 && !settings.Get().NoQuiet {
 		return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	}
 	return now.Add(-maxAge())
 }
 
 func quietHours(now time.Time) bool {
-	return os.Getenv("MINI_MAX_AGE") == "" && now.Hour() < 8
+	return os.Getenv("MINI_MAX_AGE") == "" && now.Hour() < 8 && !settings.Get().NoQuiet
 }
 
 func miniSeenPath() string {

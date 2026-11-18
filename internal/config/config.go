@@ -23,6 +23,8 @@ type Config struct {
 	GeminiModel           string
 	GeminiFallbackModel   string
 	CronSchedule          string
+	WebAddr               string // адрес мини-апки (WEB_ADDR, напр. 127.0.0.1:8088); "" = выключена
+	WebURL                string // публичный https-адрес мини-апки (WEB_URL) для кнопки меню
 	PublishCmd            string // команда юзербота: JSON на stdin → пост в канал; "" = без кнопки «Опубликовать»
 	Timezone              *time.Location
 	PhotoEnabled          bool
@@ -69,6 +71,8 @@ func Load() (Config, error) {
 	if cfg.GeminiModel == "" {
 		cfg.GeminiModel = "gemini-2.5-flash"
 	}
+	cfg.WebAddr = strings.TrimSpace(os.Getenv("WEB_ADDR"))
+	cfg.WebURL = strings.TrimSpace(os.Getenv("WEB_URL"))
 	cfg.PublishCmd = strings.TrimSpace(os.Getenv("PUBLISH_CMD"))
 	if cfg.CronSchedule == "" {
 		cfg.CronSchedule = defaultCronSchedule

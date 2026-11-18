@@ -10,6 +10,9 @@ import (
 	"unicode"
 
 	"github.com/mmcdole/gofeed"
+	"time"
+
+	"treesheild-newsbot/internal/settings"
 )
 
 // miniFeeds — источники мини-постов.
@@ -28,13 +31,47 @@ const miniDownAfter = 15
 var (
 	miniFailsMu sync.Mutex
 	miniFails   = map[string]int{}
+	miniLastOK  = map[string]time.Time{}
 )
+
+func feedID(name string) string   { return "RSS " + name }
+func chanID(handle string) string { return "Telegram @" + handle }
+
+// SourceIDs — идентификаторы источников для настроек.
+func SourceIDs() []string {
+	var ids []string
+	for _, f := range miniFeeds {
+		ids = append(ids, feedID(f.Name))
+	}
+	for _, c := range miniChannels {
+		ids = append(ids, chanID(c.Handle))
+	}
+	return ids
+}
+
+// SourceState — состояние источника для страницы статуса.
+type SourceState struct {
+	ID     string    `json:"id"`
+	Fails  int       `json:"fails"`
+	LastOK time.Time `json:"last_ok"`
+}
+
+func SourceStatus() []SourceState {
+	miniFailsMu.Lock()
+	defer miniFailsMu.Unlock()
+	out := []SourceState{}
+	for _, id := range SourceIDs() {
+		out = append(out, SourceState{id, miniFails[id], miniLastOK[id]})
+	}
+	return out
+}
 
 // noteSource считает неудачи подряд; сообщение — один раз на сбой.
 func noteSource(name string, err error) {
 	miniFailsMu.Lock()
 	if err == nil {
 		miniFails[name] = 0
+		miniLastOK[name] = time.Now()
 		miniFailsMu.Unlock()
 		return
 	}
@@ -55,8 +92,11 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 	var out []Article
 	var errs []error
 	for _, src := range miniFeeds {
+		if settings.IsOff(feedID(src.Name)) {
+			continue
+		}
 		feed, err := fetchFeedWithRetry(ctx, parser, src.URL)
-		noteSource(src.Name, err)
+		noteSource(feedID(src.Name), err)
 		if err != nil {
 			log.Printf("мини-посты: %s: %v", src.Name, err)
 			errs = append(errs, err)
@@ -77,8 +117,11 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 		}
 	}
 	for _, ch := range miniChannels {
+		if settings.IsOff(chanID(ch.Handle)) {
+			continue
+		}
 		arts, err := fetchChannel(ctx, ch.Name, ch.Handle)
-		noteSource(ch.Handle, err)
+		noteSource(chanID(ch.Handle), err)
 		if err != nil {
 			log.Printf("мини-посты: %s: %v", ch.Handle, err)
 			errs = append(errs, err)

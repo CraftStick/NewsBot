@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>NewsBot</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+body{margin:0;font:15px/1.4 -apple-system,system-ui,sans-serif;background:var(--tg-theme-bg-color,#17212b);color:var(--tg-theme-text-color,#fff)}
+nav{display:flex;position:sticky;top:0;background:var(--tg-theme-bg-color,#17212b);border-bottom:1px solid #8883}
+nav button{flex:1;padding:12px;border:0;background:none;color:var(--tg-theme-hint-color,#8a98a8);font-size:15px}
+nav button[aria-selected=true]{color:var(--tg-theme-link-color,#5eb5f7);border-bottom:2px solid currentColor}
+main{padding:12px;max-width:640px;margin:auto}
+.card{background:var(--tg-theme-secondary-bg-color,#232e3c);border-radius:12px;padding:12px;margin-bottom:12px;overflow-wrap:anywhere}
+.card img{width:100%;border-radius:8px;margin-bottom:8px}
+.card a{color:var(--tg-theme-link-color,#5eb5f7)}
+.row{display:flex;gap:8px;margin-top:10px}
+.row button,.btn{flex:1;padding:10px;border:0;border-radius:8px;font-size:15px;background:var(--tg-theme-button-color,#2ea6ff);color:var(--tg-theme-button-text-color,#fff)}
+.row button.sec{background:#8883;color:inherit}
+textarea{width:100%;box-sizing:border-box;min-height:140px;border-radius:8px;border:1px solid #8885;background:none;color:inherit;font:14px monospace;padding:8px}
+.hint{color:var(--tg-theme-hint-color,#8a98a8);font-size:13px}
+.ok{color:#4cd964}.bad{color:#ff6b6b}
+label.sw{display:flex;justify-content:space-between;align-items:center;padding:10px 0}
+</style></head><body>
+<nav role="tablist"><button role="tab" data-t="feed">Лента</button><button role="tab" data-t="status">Статус</button><button role="tab" data-t="set">Настройки</button></nav>
+<main id="m"></main>
+<script>
+const tg=Telegram.WebApp;tg.ready();tg.expand();
+const H={'X-Init-Data':tg.initData,'Content-Type':'application/json'};
+const api=async(p,b)=>{const r=await fetch('/api/'+p,{method:b?'POST':'GET',headers:H,body:b?JSON.stringify(b):undefined});
+ const j=await r.json().catch(()=>({error:'ошибка '+r.status}));if(!r.ok)throw new Error(j.error||r.status);return j};
+const m=document.getElementById('m');
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// В ленту пускаем только b/i/a/code; всё остальное — текстом.
+function safe(h){const d=new DOMParser().parseFromString('<body>'+h,'text/html').body;
+ const w=n=>[...n.childNodes].map(c=>{if(c.nodeType==3)return esc(c.data);
+  const t=c.tagName.toLowerCase(),i=w(c);
+  if(t=='a'){const u=c.getAttribute('href')||'';return /^https?:/.test(u)?`<a href="${esc(u)}" target="_blank" rel="noopener">${i}</a>`:i}
+  return ['b','i','code'].includes(t)?`<${t}>${i}</${t}>`:i}).join('');
+ return w(d).replace(/\n/g,'<br>')}
+const busy=async(f)=>{try{await f()}catch(e){tg.showAlert(e.message)}};
+async function feed(){const l=await api('feed');
+ m.innerHTML=l.length?'':'<p class="hint">Очередь пуста. Новые посты появятся здесь и в чате.</p>';
+ for(const p of l){const c=document.createElement('div');c.className='card';
+  c.innerHTML=(p.has_image?`<img alt="" src="/api/img?key=${p.key}&d=${encodeURIComponent(tg.initData)}">`:'')+
+   `<div class="t">${safe(p.html)}</div><div class="hint">${new Date(p.at).toLocaleString('ru')}</div>
+   <div class="row"><button data-a="pub">Опубликовать</button><button class="sec" data-a="edit">Править</button><button class="sec" data-a="skip">Пропустить</button></div>`;
+  c.onclick=e=>{const a=e.target.dataset.a;if(!a)return;busy(async()=>{
+   if(a=='pub'){if(!await new Promise(r=>tg.showConfirm('Опубликовать в канал?',r)))return;await api('publish',{key:p.key});c.remove()}
+   if(a=='skip'){await api('skip',{key:p.key});c.remove()}
+   if(a=='edit'){c.querySelector('.t').outerHTML=`<textarea>${esc(p.html)}</textarea>`;
+    c.querySelector('.row').innerHTML='<button data-a="save">Сохранить</button><button class="sec" data-a="cancel">Отмена</button>'}
+   if(a=='save'){await api('edit',{key:p.key,html:c.querySelector('textarea').value});feed()}
+   if(a=='cancel')feed()})};
+  m.append(c)}}
+async function status(){const s=await api('status');
+ m.innerHTML=`<div class="card"><b>В очереди:</b> ${s.pending}<br><b>Работает:</b> ${Math.floor(s.uptime_min/60)} ч ${s.uptime_min%60} мин</div>`+
+ (s.sources||[]).map(x=>`<div class="card"><b>${esc(x.id)}</b><br><span class="${x.fails?'bad':'ok'}">${x.fails?'сбоев подряд: '+x.fails:'работает'}</span>
+  <div class="hint">последний успех: ${x.last_ok?new Date(x.last_ok).toLocaleString('ru'):'ещё не было'}</div></div>`).join('')}
+async function sett(){const r=await api('settings'),s=r.settings;s.off=s.off||[];
+ m.innerHTML='<div class="card"><b>Источники</b>'+r.sources.map(id=>`<label class="sw">${esc(id)}<input type="checkbox" data-id="${esc(id)}" ${s.off.includes(id)?'':'checked'}></label>`).join('')+
+ `</div><div class="card"><label class="sw">Тихие часы 00–08 (копить новости)<input type="checkbox" id="q" ${s.no_quiet?'':'checked'}></label></div>
+ <button class="btn" id="sv">Сохранить</button>`;
+ document.getElementById('sv').onclick=()=>busy(async()=>{await api('settings',{off:[...m.querySelectorAll('[data-id]')].filter(i=>!i.checked).map(i=>i.dataset.id),no_quiet:!document.getElementById('q').checked});tg.showAlert('Сохранено')})}
+const tabs={feed,status,set:sett};
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x==b));busy(tabs[b.dataset.t])});
+document.querySelector('nav button').click();
+</script></body></html>
