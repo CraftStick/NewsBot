@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"encoding/json"
+	"strconv"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
@@ -53,13 +54,16 @@ func SendText(cfg config.Config, html string) error {
 	return err
 }
 
-// SetMenuApp ставит кнопку меню бота, открывающую мини-апку.
+// SetMenuApp ставит кнопку мини-апки только в чате владельца; у остальных — обычное меню.
 func SetMenuApp(cfg config.Config, url string) error {
 	tc, err := newTelegramController(cfg)
 	if err != nil {
 		return err
 	}
 	b, _ := json.Marshal(map[string]any{"type": "web_app", "text": "Новости", "web_app": map[string]string{"url": url}})
-	_, err = tc.bot.MakeRequest("setChatMenuButton", tgbotapi.Params{"menu_button": string(b)})
+	if _, err = tc.bot.MakeRequest("setChatMenuButton", tgbotapi.Params{"menu_button": `{"type":"default"}`}); err != nil {
+		return err
+	}
+	_, err = tc.bot.MakeRequest("setChatMenuButton", tgbotapi.Params{"chat_id": strconv.FormatInt(tc.chatID, 10), "menu_button": string(b)})
 	return err
 }
