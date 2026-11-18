@@ -7,8 +7,6 @@
 :root{color-scheme:light;--bg:#fff;--sbg:#efeff4;--tx:#000;--hint:#8e8e93;--ac:#0088ff;--act:#fff;--ln:#c8c7cc;--bad:#ff3b30;--ok:#00c900;--glass:rgba(255,255,255,.55);--glass-hi:rgba(255,255,255,.9);--drop:rgba(255,255,255,.85)}
 *{box-sizing:border-box}
 body{margin:0;font:17px/1.35 -apple-system,system-ui,sans-serif;color:var(--tx);background:var(--sbg)}
-header{padding:24px 20px 6px}
-header h1{margin:0;font-size:34px;font-weight:700;letter-spacing:.35px}
 nav{display:flex;gap:2px;position:fixed;left:50%;transform:translateX(-50%);bottom:max(16px,env(safe-area-inset-bottom));z-index:2;padding:4px;width:min(340px,calc(100% - 32px));border-radius:32px;background:var(--glass);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border:1px solid var(--glass-hi);box-shadow:0 8px 28px rgba(0,0,0,.16),inset 0 1px 0 var(--glass-hi)}
 nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px 7px;border:0;border-radius:28px;background:none;color:var(--hint);font:500 10px inherit;font-family:inherit}
 nav button[aria-selected=true]{color:var(--ac)}
@@ -33,7 +31,6 @@ label.sw input::after{content:"";position:absolute;top:2px;left:2px;width:27px;h
 label.sw input:checked{background:#34c759}
 label.sw input:checked::after{left:22px}
 </style></head><body>
-<header><h1>Tree Shield News</h1></header>
 <nav role="tablist"><i id="drop"></i><button role="tab" data-t="feed"><svg viewBox="0 0 22 22" width="20" height="20" aria-hidden="true"><path d="M2 11L20 3 12 19 10 13z" fill="currentColor"/></svg>Лента</button><button role="tab" data-t="status"><svg viewBox="0 0 22 22" width="20" height="20" aria-hidden="true"><path d="M3 18V11h4v7zM9 18V4h4v14zM15 18V8h4v10z" fill="currentColor"/></svg>Статус</button><button role="tab" data-t="set"><svg viewBox="0 0 22 22" width="20" height="20" aria-hidden="true"><circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" stroke-width="3.5"/><g stroke="currentColor" stroke-width="4.5" fill="none"><path d="M11 1.5V5" transform="rotate(0 11 11)"/><path d="M11 1.5V5" transform="rotate(45 11 11)"/><path d="M11 1.5V5" transform="rotate(90 11 11)"/><path d="M11 1.5V5" transform="rotate(135 11 11)"/><path d="M11 1.5V5" transform="rotate(180 11 11)"/><path d="M11 1.5V5" transform="rotate(225 11 11)"/><path d="M11 1.5V5" transform="rotate(270 11 11)"/><path d="M11 1.5V5" transform="rotate(315 11 11)"/></g></svg>Настройки</button></nav>
 <main id="m"></main>
 <script>
