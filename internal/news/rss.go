@@ -61,7 +61,8 @@ type Article struct {
 	Image       string
 	EmojiID     string // свой анимированный эмодзи поста канала
 	EmojiChar   string
-	Ref         string // статья, на которую ссылается пост канала
+	Ref         string   // статья, на которую ссылается пост канала
+	Alt         *Article // у поста канала: статья сайта — запасной источник картинки
 }
 
 // topicKeywords — однозначная суть дайджеста: доступ, приватность,
@@ -481,8 +482,16 @@ var ogImageRE = regexp.MustCompile(`(?i)<meta[^>]+property=["']og:image["'][^>]+
 
 var tgPhotoRE = regexp.MustCompile(`tgme_widget_message_photo_wrap[^>]*background-image:url\('([^']+)'\)`)
 
-// ImageFor возвращает картинку статьи: из RSS, иначе og:image страницы. Пусто при любой ошибке.
+// ImageFor: картинка статьи; у поста канала сначала его фото, и только если нет — картинка статьи сайта (Alt).
 func ImageFor(ctx context.Context, a Article) string {
+	if u := imageOf(ctx, a); u != "" || a.Alt == nil {
+		return u
+	}
+	return imageOf(ctx, *a.Alt)
+}
+
+// imageOf возвращает картинку статьи: из RSS, иначе og:image страницы. Пусто при любой ошибке.
+func imageOf(ctx context.Context, a Article) string {
 	if a.Image != "" {
 		return a.Image
 	}

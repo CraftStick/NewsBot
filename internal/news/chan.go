@@ -95,19 +95,27 @@ func refKey(u string) string { return strings.TrimRight(strings.SplitN(u, "?", 2
 
 // dropRefDupes убирает RSS-статьи, на которые уже ссылается пост канала: приходит пост (со своим эмодзи и фото).
 func dropRefDupes(in []Article) []Article {
-	refs := map[string]bool{}
+	refs := map[string]*Article{}
 	for _, a := range in {
 		if a.Ref != "" {
-			refs[a.Ref] = true
+			refs[a.Ref] = nil
+		}
+	}
+	for i, a := range in {
+		if _, ok := refs[refKey(a.Link)]; ok && a.Ref == "" {
+			refs[refKey(a.Link)] = &in[i]
 		}
 	}
 	if len(refs) == 0 {
 		return in
 	}
-	out := in[:0]
+	out := make([]Article, 0, len(in))
 	for _, a := range in {
-		if a.Ref == "" && refs[refKey(a.Link)] {
+		if _, ok := refs[refKey(a.Link)]; ok && a.Ref == "" {
 			continue
+		}
+		if a.Ref != "" {
+			a.Alt = refs[a.Ref] // фото поста приоритетнее, статья сайта — запас
 		}
 		out = append(out, a)
 	}
