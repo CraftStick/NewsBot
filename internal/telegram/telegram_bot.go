@@ -286,10 +286,13 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 	case "/start", "/help":
 		const welcome = "<b>/digest</b> — собрать новый дайджест\n" +
 			"<b>/post</b> — прислать одиночный пост\n" +
-			"<b>/status</b> — состояние источников и очереди"
+			"<b>/status</b> — состояние источников и очереди\n" +
+			"<b>/skipped</b> — что отсеял фильтр"
 		_ = tc.sendHTML(chatID, welcome, true)
 	case "/status", "/статус":
 		_ = tc.sendHTML(chatID, statusText(), true)
+	case "/skipped", "/отсеянные":
+		_ = tc.sendHTML(chatID, skippedText(), true)
 	case "/post", "/пост":
 		go tc.postOne(nil)
 	case "/digest", "/new", "/новости", "/дайджест":

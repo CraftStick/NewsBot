@@ -59,6 +59,7 @@ type SourceState struct {
 func SourceStatus() []SourceState {
 	miniFailsMu.Lock()
 	defer miniFailsMu.Unlock()
+	loadOK()
 	out := []SourceState{}
 	for _, id := range SourceIDs() {
 		out = append(out, SourceState{id, miniFails[id], miniLastOK[id]})
@@ -69,9 +70,11 @@ func SourceStatus() []SourceState {
 // noteSource считает неудачи подряд; сообщение — один раз на сбой.
 func noteSource(name string, err error) {
 	miniFailsMu.Lock()
+	loadOK()
 	if err == nil {
 		miniFails[name] = 0
 		miniLastOK[name] = time.Now()
+		saveOK()
 		miniFailsMu.Unlock()
 		return
 	}

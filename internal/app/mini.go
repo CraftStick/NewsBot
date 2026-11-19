@@ -178,11 +178,13 @@ func RunMini(cfg config.Config) (err error) {
 		if recentDup(a.Title, miniRecent) {
 			seen = append(seen, a.Link) // тот же сюжет уже присылали из другого источника
 			log.Printf("мини-пост: дубль, пропущен: %s", a.Title)
+			telegram.NoteSkipped("дубль", a.Title)
 			continue
 		}
 		if a.Source == "Код Дурова" && !gemini.OnTopic(ctx, cfg, a.Title, a.Summary) {
 			seen = append(seen, a.Link)
 			log.Printf("мини-пост: не по теме (Gemini): %s", a.Title)
+			telegram.NoteSkipped("не по теме", a.Title)
 			if err := writeSeen(path, seen); err != nil { // иначе проверка темы (и квота Gemini) повторяется каждый тик
 				return err
 			}
@@ -311,9 +313,11 @@ func sendBatch(ctx context.Context, cfg config.Config, all []news.Article, seen 
 	for _, a := range all {
 		seen = append(seen, a.Link)
 		if recentDup(a.Title, miniRecent) || recentDup(a.Title, titles) {
+			telegram.NoteSkipped("дубль", a.Title)
 			continue
 		}
 		if a.Source == "Код Дурова" && !gemini.OnTopic(ctx, cfg, a.Title, a.Summary) {
+			telegram.NoteSkipped("не по теме", a.Title)
 			continue
 		}
 		keep = append(keep, a)

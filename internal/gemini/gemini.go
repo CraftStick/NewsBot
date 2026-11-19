@@ -462,6 +462,9 @@ func callGemini(
 		result, err := generate(ctx, client, model, contents, config)
 		if err != nil {
 			lastErr = fmt.Errorf("generate content: %w", err)
+			if isQuotaExhausted(err) {
+				noteQuota()
+			}
 			if isQuotaExhausted(err) && cfg.GeminiBackupKey != "" && budget.backup == nil {
 				if bc, cerr := genai.NewClient(ctx, &genai.ClientConfig{APIKey: cfg.GeminiBackupKey, Backend: genai.BackendGeminiAPI}); cerr == nil {
 					log.Printf("Gemini: дневная квота основного ключа исчерпана — перехожу на запасной")
