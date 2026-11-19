@@ -283,19 +283,19 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 	}
 
 	switch strings.TrimSpace(strings.ToLower(update.Message.Text)) {
-	case "/start", "/help":
+	case "/start", "/help", "меню":
 		const welcome = "<b>/digest</b> — собрать новый дайджест\n" +
 			"<b>/post</b> — прислать одиночный пост\n" +
 			"<b>/status</b> — состояние источников и очереди\n" +
 			"<b>/skipped</b> — что отсеял фильтр"
-		_ = tc.sendHTML(chatID, welcome, true)
-	case "/status", "/статус":
-		_ = tc.sendHTML(chatID, statusText(), true)
-	case "/skipped", "/отсеянные":
-		_ = tc.sendHTML(chatID, skippedText(), true)
-	case "/post", "/пост":
+		tc.sendMenu(chatID, welcome)
+	case "/status", "/статус", "статус":
+		tc.sendMenu(chatID, statusText())
+	case "/skipped", "/отсеянные", "отсеянные":
+		tc.sendMenu(chatID, skippedText())
+	case "/post", "/пост", "пост":
 		go tc.postOne(nil)
-	case "/digest", "/new", "/новости", "/дайджест":
+	case "/digest", "/new", "/новости", "/дайджест", "дайджест":
 		tc.startRegenerate(chatID, 0)
 	}
 }
