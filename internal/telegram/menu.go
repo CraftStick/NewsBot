@@ -13,9 +13,9 @@ func (tc *telegramController) sendPending(chatID int64) {
 		msg := tgbotapi.NewMessage(chatID, p.html)
 		msg.ParseMode = tgbotapi.ModeHTML
 		msg.DisableWebPagePreview = true
-		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📣 Опубликовать", cbPublish+p.key),
-			tgbotapi.NewInlineKeyboardButtonData("🗑 Удалить", cbSkip+p.key)))
+		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData("📣 Опубликовать", cbPublish+p.key)),
+			pendingRow(p.key))
 		_, _ = tc.bot.Send(msg)
 	}
 }

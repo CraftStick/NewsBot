@@ -55,6 +55,7 @@ func skippedText() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "<b>С запуска</b>\nНовых: %d · отправлено: %d · отсеяно: %d\n(дубли %d, не по теме %d)\n",
 		stat.checked, stat.sent, stat.dup+stat.off, stat.dup, stat.off)
+	fmt.Fprintf(&b, "👎 Удалено вами как не понравившееся: %d\n", dislikedCount())
 	if len(skipped) == 0 {
 		b.WriteString("\nОтсеивать пока нечего.")
 		return b.String()

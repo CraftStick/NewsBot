@@ -48,9 +48,8 @@ func (tc *telegramController) setPublishButton(html string, photo []byte) {
 		return
 	}
 	tc.publishKB = [][]tgbotapi.InlineKeyboardButton{
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📣 Опубликовать", cbPublish+key),
-			tgbotapi.NewInlineKeyboardButtonData("🗑 Удалить", cbSkip+key)),
+		tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData("📣 Опубликовать", cbPublish+key)),
+		pendingRow(key),
 	}
 }
 

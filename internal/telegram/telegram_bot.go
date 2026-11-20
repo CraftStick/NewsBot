@@ -260,10 +260,19 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 			_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, ""))
 			return
 		}
+		if strings.HasPrefix(q.Data, cbDislike) && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
+			key := strings.TrimPrefix(q.Data, cbDislike)
+			noteDisliked(key)
+			skipPending(key)
+			log.Print("пост удалён кнопкой и записан как не понравившийся")
+			_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, "Удалено, записано как не понравилось"))
+			_, _ = tc.bot.Request(tgbotapi.NewDeleteMessage(q.Message.Chat.ID, q.Message.MessageID))
+			return
+		}
 		if strings.HasPrefix(q.Data, cbSkip) && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
 			skipPending(strings.TrimPrefix(q.Data, cbSkip))
-			log.Print("черновик удалён кнопкой (не записан как пропущенный)")
-			_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, "Удалено"))
+			log.Print("черновик пропущен кнопкой (не записан)")
+			_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, "Пропущено"))
 			_, _ = tc.bot.Request(tgbotapi.NewDeleteMessage(q.Message.Chat.ID, q.Message.MessageID))
 			return
 		}
