@@ -232,9 +232,8 @@ func (tc *telegramController) handlePublish(q *tgbotapi.CallbackQuery) {
 		}
 	} else {
 		log.Print("пост опубликован юзерботом")
-		// публикующую кнопку убираем, чтобы не нажали дважды; «Другой дайджест» оставляем
-		kb := regenerateKeyboard()
-		_, _ = tc.bot.Request(tgbotapi.NewEditMessageReplyMarkup(q.Message.Chat.ID, q.Message.MessageID, kb))
+		// опубликовано — черновик из чата убираем
+		_, _ = tc.bot.Request(tgbotapi.NewDeleteMessage(q.Message.Chat.ID, q.Message.MessageID))
 	}
 	if _, err := tc.bot.Request(cb); err != nil {
 		log.Printf("telegram: ответ на кнопку: %v", err)
