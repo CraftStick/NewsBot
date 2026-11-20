@@ -101,7 +101,7 @@ func TestPreviewKeyboard(t *testing.T) {
 	}
 	t.Chdir(t.TempDir())
 	tc.setPublishButton("<b>d</b>", nil)
-	if n := len(tc.previewKeyboard().InlineKeyboard); n != 4 {
-		t.Fatalf("ожидалось 4 ряда, а %d", n)
+	if n := len(tc.previewKeyboard().InlineKeyboard); n != 5 {
+		t.Fatalf("ожидалось 5 рядов, а %d", n)
 	}
 }
