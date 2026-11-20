@@ -256,19 +256,14 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 			tc.handleClear(q)
 			return
 		}
-		if q.Data == cbLater && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
-			_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, "Останется в «Ожидают»"))
-			_, _ = tc.bot.Request(tgbotapi.NewDeleteMessage(q.Message.Chat.ID, q.Message.MessageID))
-			return
-		}
 		if q.Data == "noop" {
 			_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, ""))
 			return
 		}
 		if strings.HasPrefix(q.Data, cbSkip) && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
 			skipPending(strings.TrimPrefix(q.Data, cbSkip))
-			log.Print("мини-пост пропущен кнопкой")
-			_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, "Пропущено"))
+			log.Print("черновик удалён кнопкой (не записан как пропущенный)")
+			_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, "Удалено"))
 			_, _ = tc.bot.Request(tgbotapi.NewDeleteMessage(q.Message.Chat.ID, q.Message.MessageID))
 			return
 		}
