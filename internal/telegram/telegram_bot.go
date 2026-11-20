@@ -291,7 +291,11 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 		return
 	}
 
-	switch strings.TrimSpace(strings.ToLower(update.Message.Text)) {
+	cmd := strings.TrimSpace(strings.ToLower(update.Message.Text))
+	if controlCmds[cmd] { // команды и нажатия кнопок меню не оставляем в чате
+		_, _ = tc.bot.Request(tgbotapi.NewDeleteMessage(chatID, update.Message.MessageID))
+	}
+	switch cmd {
 	case "/start", "/help", "меню":
 		const welcome = "<b>/digest</b> — собрать новый дайджест\n" +
 			"<b>/post</b> — прислать одиночный пост\n" +
