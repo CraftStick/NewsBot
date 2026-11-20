@@ -6,11 +6,11 @@ import (
 )
 
 func TestSkippedAndPendingText(t *testing.T) {
-	if s := skippedText(); !strings.Contains(s, "Новых статей пока не было") {
+	if s := skippedText(); !strings.Contains(s, "Отсеивать пока нечего") {
 		t.Fatalf("пустое состояние: %q", s)
 	}
 	NoteChecked()
-	if s := skippedText(); !strings.Contains(s, "отсеивать было нечего") {
+	if s := skippedText(); !strings.Contains(s, "Отсеивать пока нечего") {
 		t.Fatalf("ничего не отсеяно: %q", s)
 	}
 	NoteSkipped("дубль", "Заголовок")

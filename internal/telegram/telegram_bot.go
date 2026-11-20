@@ -256,6 +256,11 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 			tc.handleClear(q)
 			return
 		}
+		if q.Data == cbLater && q.Message != nil && tc.allowed(q.Message.Chat.ID) {
+			_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, "Останется в «Ожидают»"))
+			_, _ = tc.bot.Request(tgbotapi.NewDeleteMessage(q.Message.Chat.ID, q.Message.MessageID))
+			return
+		}
 		if q.Data == "noop" {
 			_, _ = tc.bot.Request(tgbotapi.NewCallback(q.ID, ""))
 			return

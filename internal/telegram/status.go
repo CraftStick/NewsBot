@@ -53,15 +53,10 @@ func skippedText() string {
 	skipMu.Lock()
 	defer skipMu.Unlock()
 	var b strings.Builder
-	fmt.Fprintf(&b, "<b>С запуска</b>: новых статей разобрано %d, отправлено %d, отсеяно %d (дубли %d, не по теме %d).\n",
+	fmt.Fprintf(&b, "<b>С запуска</b>\nНовых: %d · отправлено: %d · отсеяно: %d\n(дубли %d, не по теме %d)\n",
 		stat.checked, stat.sent, stat.dup+stat.off, stat.dup, stat.off)
-	b.WriteString("Не по теме отсеивает Gemini, только у «Код Дурова»; дубль — тот же сюжет, что уже присылали.\n")
-	if stat.last.IsZero() {
-		b.WriteString("Новых статей пока не было.")
-		return b.String()
-	}
 	if len(skipped) == 0 {
-		b.WriteString("Всё, что пришло, прошло фильтры — отсеивать было нечего.")
+		b.WriteString("\nОтсеивать пока нечего.")
 		return b.String()
 	}
 	b.WriteString("\n<b>Отсеяно (новые внизу)</b>\n")
@@ -71,37 +66,41 @@ func skippedText() string {
 	return b.String()
 }
 
-// statusText — сводка для /status: источники, Gemini, очередь, аптайм.
+// statusText — короткая сводка для /status.
 func statusText() string {
 	var b strings.Builder
+	b.WriteString("<b>Источники</b>\n")
 	for _, s := range news.SourceStatus() {
-		icon, note := "🟢", "ещё не опрашивался"
+		icon, note := "🟢", "ждёт опроса"
 		switch {
 		case settings.IsOff(s.ID):
 			icon, note = "⚪", "выключен"
 		case s.Fails > 0:
-			icon, note = "🔴", fmt.Sprintf("сбоев подряд: %d", s.Fails)
+			icon, note = "🔴", fmt.Sprintf("сбоев: %d", s.Fails)
 		case !s.LastOK.IsZero():
-			note = "ок, " + s.LastOK.Format("15:04")
+			note = s.LastOK.Format("15:04")
 		}
-		fmt.Fprintf(&b, "%s %s — %s\n", icon, html.EscapeString(s.ID), note)
+		fmt.Fprintf(&b, "%s %s · %s\n", icon, html.EscapeString(s.ID), note)
 	}
-	gem := "🟢 Gemini: квота в порядке"
+	gem := "🟢 квота в порядке"
 	if reset, ok := gemini.QuotaResetAt(time.Now()); ok {
 		msk, _ := time.LoadLocation("Europe/Moscow")
-		gem = "🔴 Gemini: дневная квота исчерпана, сброс ~" + reset.In(msk).Format("15:04") + " МСК"
+		gem = "🔴 квота кончилась, сброс ~" + reset.In(msk).Format("15:04") + " МСК"
 	}
-	gem += fmt.Sprintf("\nЗапросов к Gemini за сутки квоты: %d (Google остаток не сообщает; при исчерпании бот покажет время сброса)", gemini.UsedToday())
-	pend := "нет"
-	if ps := pendingList(); len(ps) > 0 {
-		var l []string
-		for _, p := range ps {
-			l = append(l, "• "+html.EscapeString(p.title))
-		}
-		pend = fmt.Sprintf("%d — жми «Ожидают», чтобы посмотреть и решить\n%s", len(ps), strings.Join(l, "\n"))
+	fmt.Fprintf(&b, "\n<b>Gemini</b>\n%s · запросов за сутки: %d\n", gem, gemini.UsedToday())
+	b.WriteString("\n<b>Ожидают</b>\n")
+	ps := pendingList()
+	if len(ps) == 0 {
+		b.WriteString("пусто\n")
 	}
-	up := time.Since(startedAt).Round(time.Minute)
-	return fmt.Sprintf("<b>Источники</b>\n%s\n%s\n\n<b>Ждут решения:</b> %s\n\nБот работает: %s", b.String(), gem, pend, up)
+	for _, p := range ps {
+		b.WriteString("• " + html.EscapeString(p.title) + "\n")
+	}
+	if len(ps) > 0 {
+		b.WriteString("→ кнопка «Ожидают»\n")
+	}
+	fmt.Fprintf(&b, "\nАптайм: %s", time.Since(startedAt).Round(time.Minute))
+	return b.String()
 }
 
 type pendItem struct{ key, title, html string }

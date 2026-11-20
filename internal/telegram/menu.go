@@ -2,6 +2,8 @@ package telegram
 
 import tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
+const cbLater = "later"
+
 // sendPending присылает каждую ждущую заготовку целиком с кнопками «Опубликовать/Пропустить».
 func (tc *telegramController) sendPending(chatID int64) {
 	ps := pendingList()
@@ -9,13 +11,16 @@ func (tc *telegramController) sendPending(chatID int64) {
 		tc.sendMenu(chatID, "Ничего не ждёт решения.")
 		return
 	}
+	tc.sendMenu(chatID, "«Позже» убирает сообщение, черновик остаётся в «Ожидают». «Пропустить» удаляет черновик насовсем.")
 	for _, p := range ps {
 		msg := tgbotapi.NewMessage(chatID, p.html)
 		msg.ParseMode = tgbotapi.ModeHTML
 		msg.DisableWebPagePreview = true
 		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📣 Опубликовать", cbPublish+p.key),
-			tgbotapi.NewInlineKeyboardButtonData("🗑 Пропустить", cbSkip+p.key)))
+			tgbotapi.NewInlineKeyboardButtonData("📣 Опубликовать", cbPublish+p.key)),
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("⏳ Позже", cbLater),
+				tgbotapi.NewInlineKeyboardButtonData("🗑 Пропустить", cbSkip+p.key)))
 		_, _ = tc.bot.Send(msg)
 	}
 }
