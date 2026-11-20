@@ -459,6 +459,7 @@ func callGemini(
 
 		model := budget.model(cfg)
 		config.ThinkingConfig = thinkingConfigFor(model)
+		noteCall()
 		result, err := generate(ctx, client, model, contents, config)
 		if err != nil {
 			lastErr = fmt.Errorf("generate content: %w", err)

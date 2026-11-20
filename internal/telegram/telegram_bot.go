@@ -287,12 +287,15 @@ func (tc *telegramController) handleUpdate(update tgbotapi.Update) {
 		const welcome = "<b>/digest</b> — собрать новый дайджест\n" +
 			"<b>/post</b> — прислать одиночный пост\n" +
 			"<b>/status</b> — состояние источников и очереди\n" +
-			"<b>/skipped</b> — что отсеял фильтр"
+			"<b>/skipped</b> — что отсеял фильтр\n" +
+			"<b>/pending</b> — посты, ждущие решения"
 		tc.sendMenu(chatID, welcome)
 	case "/status", "/статус", "статус":
 		tc.sendMenu(chatID, statusText())
 	case "/skipped", "/отсеянные", "отсеянные":
 		tc.sendMenu(chatID, skippedText())
+	case "/pending", "/ожидают", "ожидают":
+		tc.sendPending(chatID)
 	case "/post", "/пост", "пост":
 		go tc.postOne(nil)
 	case "/digest", "/new", "/новости", "/дайджест", "дайджест":

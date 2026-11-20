@@ -175,6 +175,7 @@ func RunMini(cfg config.Config) (err error) {
 		return sendBatch(ctx, cfg, all, seen, path)
 	}
 	for _, a := range newMini(arts, seen, miniMaxPerTick, miniSince(time.Now())) {
+		telegram.NoteChecked()
 		if recentDup(a.Title, miniRecent) {
 			seen = append(seen, a.Link) // тот же сюжет уже присылали из другого источника
 			log.Printf("мини-пост: дубль, пропущен: %s", a.Title)
@@ -194,6 +195,7 @@ func RunMini(cfg config.Config) (err error) {
 		if err := telegram.SendMini(cfg, miniHTML(a), photo); err != nil {
 			return err // не отмечена — уйдёт на следующем проходе
 		}
+		telegram.NoteSent()
 		seen = append(seen, a.Link)
 		if miniRecent = append(miniRecent, a.Title); len(miniRecent) > 50 {
 			miniRecent = miniRecent[1:]
@@ -311,6 +313,7 @@ func sendBatch(ctx context.Context, cfg config.Config, all []news.Article, seen 
 	var keep []news.Article
 	var titles []string
 	for _, a := range all {
+		telegram.NoteChecked()
 		seen = append(seen, a.Link)
 		if recentDup(a.Title, miniRecent) || recentDup(a.Title, titles) {
 			telegram.NoteSkipped("дубль", a.Title)
@@ -321,6 +324,7 @@ func sendBatch(ctx context.Context, cfg config.Config, all []news.Article, seen 
 			continue
 		}
 		keep = append(keep, a)
+		telegram.NoteSent()
 		titles = append(titles, a.Title)
 	}
 	if len(keep) > 0 {
