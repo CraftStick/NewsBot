@@ -98,11 +98,17 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 		if settings.IsOff(feedID(src.Name)) {
 			continue
 		}
-		feed, err := fetchFeedWithRetry(ctx, parser, src.URL)
+		if !sourceDue(feedID(src.Name), time.Now()) {
+			continue
+		}
+		feed, err := fetchFeedCondRetry(ctx, parser, src.URL)
 		noteSource(feedID(src.Name), err)
 		if err != nil {
 			log.Printf("мини-посты: %s: %v", src.Name, err)
 			errs = append(errs, err)
+			continue
+		}
+		if feed == nil { // 304: лента не менялась
 			continue
 		}
 		for _, it := range feed.Items {
@@ -121,6 +127,9 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 	}
 	for _, ch := range miniChannels {
 		if settings.IsOff(chanID(ch.Handle)) {
+			continue
+		}
+		if !sourceDue(chanID(ch.Handle), time.Now()) {
 			continue
 		}
 		arts, err := fetchChannel(ctx, ch.Name, ch.Handle)

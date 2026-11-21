@@ -28,7 +28,7 @@ var (
 // fetchChannel разбирает t.me/s/<канал>; ссылка записи — на сам пост.
 func fetchChannel(ctx context.Context, name, handle string) ([]Article, error) {
 	req, _ := http.NewRequestWithContext(ctx, "GET", "https://t.me/s/"+handle, nil)
-	resp, err := httpClient.Do(req)
+	resp, err := doGet(req)
 	if err != nil {
 		return nil, err
 	}

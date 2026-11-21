@@ -146,7 +146,7 @@ func fetchFeed(ctx context.Context, parser *gofeed.Parser, url string) (*gofeed.
 		return nil, err
 	}
 	req.Header.Set("User-Agent", parser.UserAgent)
-	resp, err := httpClient.Do(req)
+	resp, err := doGet(req)
 	if err != nil {
 		return nil, err
 	}
