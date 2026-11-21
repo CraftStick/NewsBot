@@ -112,7 +112,8 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 			continue
 		}
 		for _, it := range feed.Items {
-			if it.Link == "" || strings.TrimSpace(it.Title) == "" || it.PublishedParsed == nil {
+			link := itemLink(it)
+			if link == "" || strings.TrimSpace(it.Title) == "" || it.PublishedParsed == nil {
 				continue
 			}
 			title, sum := cleanMiniText(it.Title, miniSummary(it))
@@ -121,7 +122,7 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 			if !src.All && (rel < relevanceTopic || !miniCore(title, sum)) || isRoundup(title) {
 				continue
 			}
-			out = append(out, Article{Source: src.Name, Title: title, Link: it.Link,
+			out = append(out, Article{Source: src.Name, Title: title, Link: link,
 				Summary: sum, PublishedAt: *it.PublishedParsed, Relevance: rel})
 		}
 	}
@@ -211,4 +212,15 @@ func isRoundup(title string) bool {
 func miniCore(title, summary string) bool {
 	r := strings.NewReplacer("экрана блокировки", "", "экран блокировки", "", "блокировка экрана", "", "блокировки экрана", "")
 	return articleRelevance(r.Replace(strings.ToLower(title)), r.Replace(strings.ToLower(summary))) >= relevanceTopic
+}
+
+// itemLink — ссылка записи; нет <link> — берём guid, если это адрес (запасной ключ).
+func itemLink(it *gofeed.Item) string {
+	if it.Link != "" {
+		return it.Link
+	}
+	if strings.HasPrefix(it.GUID, "http://") || strings.HasPrefix(it.GUID, "https://") {
+		return it.GUID
+	}
+	return ""
 }
