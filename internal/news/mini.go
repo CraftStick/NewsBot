@@ -197,18 +197,9 @@ func isRoundup(title string) bool {
 	return strings.HasPrefix(fold(title), fold("Компании на kod.ru"))
 }
 
-// miniCoreKeywords — узкая суть канала. Общая ИТ-повестка (уязвимости, гаджеты, «взлом»,
-// «хакер», «обход») в мини-посты не идёт: пользователь её удалял как ненужную.
-var miniCoreKeywords = []string{
-	"vpn", "блокировк", "заблокир", "разблок", "роском", "ркн", "тспу", "dpi", "цензур",
-	"замедл", "утечк", "слежк", "приватност", "шифрован", "персональн", "биометри",
-	"законопроект", "минцифр", "рунет", "суверен", "белые списки", "белых списк",
-	"censorship", "privacy", "surveillance", "breach", "leak",
-}
-
-// miniCore: тема канала по узкому списку; «блокировка экрана» — не та блокировка.
+// miniCore: тема по общему фильтру, но «блокировка экрана» — не та блокировка
+// (так прошла новость про уязвимость Windows).
 func miniCore(title, summary string) bool {
-	text := strings.ToLower(title + " " + summary)
-	text = strings.NewReplacer("экрана блокировки", "", "экран блокировки", "", "блокировка экрана", "", "блокировки экрана", "").Replace(text)
-	return containsAny(text, miniCoreKeywords)
+	r := strings.NewReplacer("экрана блокировки", "", "экран блокировки", "", "блокировка экрана", "", "блокировки экрана", "")
+	return articleRelevance(r.Replace(strings.ToLower(title)), r.Replace(strings.ToLower(summary))) >= relevanceTopic
 }
