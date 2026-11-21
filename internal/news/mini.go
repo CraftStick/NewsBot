@@ -112,7 +112,7 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 			title, sum := cleanMiniText(it.Title, miniSummary(it))
 			// Только по теме канала (блокировки, приватность, ИБ), как в дайджесте.
 			rel := articleRelevance(title, sum)
-			if !src.All && rel < relevanceTopic || isRoundup(title) {
+			if !src.All && (rel < relevanceTopic || !miniCore(title, sum)) || isRoundup(title) {
 				continue
 			}
 			out = append(out, Article{Source: src.Name, Title: title, Link: it.Link,
@@ -131,7 +131,7 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 			continue
 		}
 		for _, a := range arts {
-			if a.Relevance = articleRelevance(a.Title, a.Summary); a.Relevance >= relevanceTopic && !isRoundup(a.Title) {
+			if a.Relevance = articleRelevance(a.Title, a.Summary); a.Relevance >= relevanceTopic && miniCore(a.Title, a.Summary) && !isRoundup(a.Title) {
 				out = append(out, a)
 			}
 		}
@@ -195,4 +195,20 @@ func firstSentence(s string) (head, tail string) {
 // isRoundup — рубрика-подборка ссылок («Компании на kod.ru»), а не новость.
 func isRoundup(title string) bool {
 	return strings.HasPrefix(fold(title), fold("Компании на kod.ru"))
+}
+
+// miniCoreKeywords — узкая суть канала. Общая ИТ-повестка (уязвимости, гаджеты, «взлом»,
+// «хакер», «обход») в мини-посты не идёт: пользователь её удалял как ненужную.
+var miniCoreKeywords = []string{
+	"vpn", "блокировк", "заблокир", "разблок", "роском", "ркн", "тспу", "dpi", "цензур",
+	"замедл", "утечк", "слежк", "приватност", "шифрован", "персональн", "биометри",
+	"законопроект", "минцифр", "рунет", "суверен", "белые списки", "белых списк",
+	"censorship", "privacy", "surveillance", "breach", "leak",
+}
+
+// miniCore: тема канала по узкому списку; «блокировка экрана» — не та блокировка.
+func miniCore(title, summary string) bool {
+	text := strings.ToLower(title + " " + summary)
+	text = strings.NewReplacer("экрана блокировки", "", "экран блокировки", "", "блокировка экрана", "", "блокировки экрана", "").Replace(text)
+	return containsAny(text, miniCoreKeywords)
 }
