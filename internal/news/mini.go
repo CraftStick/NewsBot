@@ -112,7 +112,7 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 			title, sum := cleanMiniText(it.Title, miniSummary(it))
 			// Только по теме канала (блокировки, приватность, ИБ), как в дайджесте.
 			rel := articleRelevance(title, sum)
-			if !src.All && rel < relevanceTopic {
+			if !src.All && rel < relevanceTopic || isRoundup(title) {
 				continue
 			}
 			out = append(out, Article{Source: src.Name, Title: title, Link: it.Link,
@@ -131,7 +131,7 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 			continue
 		}
 		for _, a := range arts {
-			if a.Relevance = articleRelevance(a.Title, a.Summary); a.Relevance >= relevanceTopic {
+			if a.Relevance = articleRelevance(a.Title, a.Summary); a.Relevance >= relevanceTopic && !isRoundup(a.Title) {
 				out = append(out, a)
 			}
 		}
@@ -190,4 +190,9 @@ func firstSentence(s string) (head, tail string) {
 		}
 	}
 	return s, ""
+}
+
+// isRoundup — рубрика-подборка ссылок («Компании на kod.ru»), а не новость.
+func isRoundup(title string) bool {
+	return strings.HasPrefix(fold(title), fold("Компании на kod.ru"))
 }
