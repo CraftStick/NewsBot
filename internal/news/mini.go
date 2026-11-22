@@ -26,6 +26,9 @@ var miniFeeds = []struct {
 // OnSourceDown вызывается, когда источник не отвечает miniDownAfter проходов подряд.
 var OnSourceDown func(name string)
 
+// OnSourceUp вызывается, когда источник, о падении которого сообщали, снова отвечает.
+var OnSourceUp func(name string)
+
 const miniDownAfter = 15
 
 var (
@@ -72,10 +75,14 @@ func noteSource(name string, err error) {
 	miniFailsMu.Lock()
 	loadOK()
 	if err == nil {
+		up := miniFails[name] >= miniDownAfter // раньше сообщали, что упал
 		miniFails[name] = 0
 		miniLastOK[name] = time.Now()
 		saveOK()
 		miniFailsMu.Unlock()
+		if up && OnSourceUp != nil {
+			OnSourceUp(name)
+		}
 		return
 	}
 	miniFails[name]++

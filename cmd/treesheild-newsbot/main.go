@@ -59,6 +59,9 @@ func main() {
 	news.OnSourceDown = func(name string) {
 		_ = telegram.SendText(cfg, "⚠️ Источник «"+name+"» не отвечает 15 минут подряд")
 	}
+	news.OnSourceUp = func(name string) {
+		_ = telegram.SendText(cfg, "✅ Источник «"+name+"» снова отвечает")
+	}
 
 	switch {
 	case *once:
