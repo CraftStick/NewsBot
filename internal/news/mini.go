@@ -126,7 +126,11 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 			title, sum := cleanMiniText(it.Title, miniSummary(it))
 			// Только по теме канала (блокировки, приватность, ИБ), как в дайджесте.
 			rel := articleRelevance(title, sum)
-			if !src.All && (rel < relevanceTopic || !miniCore(title, sum)) || isRoundup(title) {
+			if isRoundup(title) {
+				continue
+			}
+			if !src.All && (rel < relevanceTopic || !miniCore(title, sum)) {
+				noteOffTopic(link, title)
 				continue
 			}
 			out = append(out, Article{Source: src.Name, Title: title, Link: link,
@@ -148,8 +152,13 @@ func FetchMini(ctx context.Context) ([]Article, error) {
 			continue
 		}
 		for _, a := range arts {
-			if a.Relevance = articleRelevance(a.Title, a.Summary); a.Relevance >= relevanceTopic && miniCore(a.Title, a.Summary) && !isRoundup(a.Title) {
+			a.Relevance = articleRelevance(a.Title, a.Summary)
+			switch {
+			case isRoundup(a.Title):
+			case a.Relevance >= relevanceTopic && miniCore(a.Title, a.Summary):
 				out = append(out, a)
+			default:
+				noteOffTopic(a.Link, a.Title)
 			}
 		}
 	}
@@ -230,4 +239,21 @@ func itemLink(it *gofeed.Item) string {
 		return it.GUID
 	}
 	return ""
+}
+
+// offTopicLogged — ссылки, об отсеве которых уже написали: лента опрашивается каждую минуту.
+var (
+	offTopicMu     sync.Mutex
+	offTopicLogged = map[string]struct{}{}
+)
+
+// noteOffTopic пишет в журнал, что запись отсеяна фильтром темы (один раз на ссылку).
+func noteOffTopic(link, title string) {
+	offTopicMu.Lock()
+	defer offTopicMu.Unlock()
+	if _, ok := offTopicLogged[link]; ok {
+		return
+	}
+	offTopicLogged[link] = struct{}{}
+	log.Printf("мини-пост: не по теме (фильтр): %s", title)
 }
