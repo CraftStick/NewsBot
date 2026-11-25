@@ -73,6 +73,7 @@ var topicKeywords = []string{
 	"взлом", "кибер", "утечк", "хакер", "слежк", "замедл",
 	"роском", "ркн", "госдум", "минцифр", "законопроект", "регулятор",
 	"биометри", "суверен", "персональн",
+	"анонимн", "пентест",
 	"censorship", "privacy", "firewall", "surveillance", "leak", "breach",
 }
 
@@ -83,6 +84,10 @@ var topicKeywords = []string{
 var weakTopicKeywords = []string{
 	"штраф", "мошенн", "закон", "суд", "иск", "ограничен", "санкц", "запрет",
 }
+
+// blockedKeywords — отсев безусловный, даже при темовом слове рядом:
+// корпоративные пресс-релизы Softline в канале не нужны.
+var blockedKeywords = []string{"softline"}
 
 // excludeKeywords — чего в дайджесте быть не должно, даже когда рядом оказалось
 // «судебное» и «цифровое» слово: так претензия Valve к скинченджеру для CS2
@@ -312,6 +317,9 @@ const (
 // слов, и «МТС улучшила мобильный интернет» проходило наравне с блокировками.
 func articleRelevance(title, summary string) int {
 	text := strings.ToLower(title + " " + summary)
+	if containsAny(text, blockedKeywords) {
+		return relevanceNone
+	}
 	if containsAny(text, topicKeywords) {
 		return relevanceTopic
 	}
