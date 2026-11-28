@@ -180,6 +180,9 @@ func RunMini(cfg config.Config) (err error) {
 			seen = append(seen, a.Link) // тот же сюжет уже присылали из другого источника
 			log.Printf("мини-пост: дубль, пропущен: %s", a.Title)
 			telegram.NoteSkipped("дубль", a.Title)
+			if err := writeSeen(path, seen); err != nil { // иначе та же запись считается дублем каждую минуту
+				return err
+			}
 			continue
 		}
 		if a.Source == "Код Дурова" && !gemini.OnTopic(ctx, cfg, a.Title, a.Summary) {
